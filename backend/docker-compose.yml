@@ -1,0 +1,60 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres
+    volumes:
+      # Means that the files in sql will be run whenever ./data/db is not present
+      # If you want to refresh the schema (and delete current data)
+      # delete ./data/db
+      - ./sql:/docker-entrypoint-initdb.d
+      # This is a a persistent store of PSQL data for development
+      - ./data/db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=toor
+  mail-service:
+    build:
+      context: https://github.com/innexgo/mail-service.git
+      dockerfile: Dev.Dockerfile
+    environment:
+      - RUST_BACKTRACE=1
+    command:
+      [
+        "/bin/mail-service",
+        "--port=8078",
+        "--database-url=postgres://postgres:toor@db/mail",
+      ]
+    ports:
+      - "8078:8078"
+  auth-service:
+    build:
+      context: https://github.com/innexgo/auth-service.git
+      dockerfile: Dev.Dockerfile
+    environment:
+      - RUST_BACKTRACE=1
+    command:
+      [
+        "/bin/auth-service",
+        "--port=8079",
+        "--database-url=postgres://postgres:toor@db/auth",
+        "--site-external-url=http://localhost:3000",
+        "--mail-service-url=http://mail-service:8078",
+      ]
+    ports:
+      - "8079:8079"
+  todo-app-service:
+    build:
+      context: .
+      dockerfile: Dev.Dockerfile
+    environment:
+      - RUST_BACKTRACE=1
+    command:
+      [
+        "/bin/todo-app-service",
+        "--port=8080",
+        "--database-url=postgres://postgres:toor@db/todo_app",
+        "--site-external-url=http://localhost:3000",
+        "--auth-service-url=http://auth-service:8079",
+      ]
+    ports:
+      - "8080:8080"
