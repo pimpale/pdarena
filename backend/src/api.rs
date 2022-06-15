@@ -1,4 +1,6 @@
 use super::handlers;
+use super::response;
+use super::response::AppError;
 use super::utils;
 use super::Config;
 use super::Db;
@@ -6,8 +8,6 @@ use super::SERVICE_NAME;
 use auth_service_api::client::AuthService;
 use std::convert::Infallible;
 use std::future::Future;
-use super::response;
-use super::response::AppError;
 use warp::http::StatusCode;
 use warp::Filter;
 
@@ -35,57 +35,29 @@ pub fn api(
             config.clone(),
             db.clone(),
             auth_service.clone(),
-            warp::path!("public" / "article" / "new"),
+            warp::path!("public" / "submission" / "new"),
             handlers::article_new,
         ),
         adapter(
             config.clone(),
             db.clone(),
             auth_service.clone(),
-            warp::path!("public" / "article_data" / "new"),
+            warp::path!("public" / "tournament" / "new"),
             handlers::article_data_new,
         ),
         adapter(
             config.clone(),
             db.clone(),
             auth_service.clone(),
-            warp::path!("public" / "article_section" / "new"),
+            warp::path!("public" / "matchup" / "view"),
             handlers::article_section_new,
         ),
         adapter(
             config.clone(),
             db.clone(),
             auth_service.clone(),
-            warp::path!("public" / "article" / "view"),
-            handlers::article_view,
-        ),
-        adapter(
-            config.clone(),
-            db.clone(),
-            auth_service.clone(),
-            warp::path!("public" / "article_data" / "view"),
-            handlers::article_data_view,
-        ),
-        adapter(
-            config.clone(),
-            db.clone(),
-            auth_service.clone(),
-            warp::path!("public" / "article_section" / "view"),
-            handlers::article_section_view,
-        ),
-        adapter(
-            config.clone(),
-            db.clone(),
-            auth_service.clone(),
-            warp::path!("public" / "article_data" / "view_public"),
-            handlers::article_data_public_view,
-        ),
-        adapter(
-            config.clone(),
-            db.clone(),
-            auth_service.clone(),
-            warp::path!("public" / "article_section" / "view_public"),
-            handlers::article_section_public_view,
+            warp::path!("public" / "match_resolution" / "view"),
+            handlers::article_section_new,
         )
     )
     .recover(handle_rejection)

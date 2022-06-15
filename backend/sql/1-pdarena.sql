@@ -9,15 +9,16 @@ CREATE DATABASE pdarena;
 
 drop table if exists submission cascade;
 create table submission(
-  article_id bigserial primary key,
+  submission_id bigserial primary key,
   creation_time bigint not null default extract(epoch from now()) * 1000,
   creator_user_id bigint not null,
+  reference bool not null,
   code string not null
 );
 
 drop table if exists tournament cascade;
 create table tournament(
-  article_id bigserial primary key,
+  tournament_id bigserial primary key,
   creation_time bigint not null default extract(epoch from now()) * 1000,
   creator_user_id bigint not null,
   public bool not null
@@ -51,20 +52,23 @@ create view recent_tournament_data as
 -- matchup between two programs
 drop table if exists matchup cascade;
 create table matchup(
-  matchup_id bigserial primary key,
   creation_time bigint not null default extract(epoch from now()) * 1000,
-  article_id bigint not null references article(article_id),
-  position bigint not null,
-  variant bigint not null,
-  section_text text not null,
-  active bool not null
+  a_submission_id bigint not null references submission(submission_id),
+  b_submission_id bigint not null references submission(submission_id),
+  primary key (a_submission_id, b_submission_id)
 );
 
-create view recent_matchup as
-  select a_s.* from matchup a_s
-  inner join (
-   select max(matchup_id) id 
-   from matchup 
-   group by article_id, position, variant
-  ) maxids
-  on maxids.id = a_s.matchup_id;
+-- a specific match between two programs
+-- there are 10 of these in total
+drop table if exists match_resolution cascade;
+create table matchup_resolution (
+  submission_id bigint not null references submission(submission_id),
+  opponent_submission_id bigint not null references submission(submission_id),
+  round bigint not null,
+  creation_time bigint not null default extract(epoch from now()) * 1000,
+  defected bool,
+  stdout text not null,
+  stderr text not null,
+  primary key (submission_id, round)
+);
+
