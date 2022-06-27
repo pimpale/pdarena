@@ -36,28 +36,64 @@ pub fn api(
             db.clone(),
             auth_service.clone(),
             warp::path!("public" / "submission" / "new"),
-            handlers::article_new,
+            handlers::submission_new,
         ),
         adapter(
             config.clone(),
             db.clone(),
             auth_service.clone(),
             warp::path!("public" / "tournament" / "new"),
-            handlers::article_data_new,
+            handlers::tournament_new,
+        ),
+        adapter(
+            config.clone(),
+            db.clone(),
+            auth_service.clone(),
+            warp::path!("public" / "tournament_data" / "new"),
+            handlers::tournament_data_new,
+        ),
+        adapter(
+            config.clone(),
+            db.clone(),
+            auth_service.clone(),
+            warp::path!("public" / "tournament" / "submit"),
+            handlers::tournament_submit,
+        ),
+        // if any match_resolutions failed, then retry those ones
+        adapter(
+            config.clone(),
+            db.clone(),
+            auth_service.clone(),
+            warp::path!("public" / "matchup" / "retry"),
+            handlers::matchup_retry,
+        ),
+        adapter(
+            config.clone(),
+            db.clone(),
+            auth_service.clone(),
+            warp::path!("public" / "submission" / "view"),
+            handlers::submission_view,
+        ),
+        adapter(
+            config.clone(),
+            db.clone(),
+            auth_service.clone(),
+            warp::path!("public" / "tournament_data" / "view"),
+            handlers::tournament_view,
         ),
         adapter(
             config.clone(),
             db.clone(),
             auth_service.clone(),
             warp::path!("public" / "matchup" / "view"),
-            handlers::article_section_new,
+            handlers::matchup_view,
         ),
         adapter(
             config.clone(),
             db.clone(),
             auth_service.clone(),
             warp::path!("public" / "match_resolution" / "view"),
-            handlers::article_section_new,
+            handlers::match_resolution_view,
         )
     )
     .recover(handle_rejection)

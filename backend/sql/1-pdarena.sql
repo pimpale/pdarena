@@ -12,7 +12,7 @@ create table submission(
   submission_id bigserial primary key,
   creation_time bigint not null default extract(epoch from now()) * 1000,
   creator_user_id bigint not null,
-  reference bool not null,
+  is_testcase bigint not null,
   code string not null
 );
 
@@ -20,8 +20,7 @@ drop table if exists tournament cascade;
 create table tournament(
   tournament_id bigserial primary key,
   creation_time bigint not null default extract(epoch from now()) * 1000,
-  creator_user_id bigint not null,
-  public bool not null
+  creator_user_id bigint not null
 );
 
 -- invariant: tournament_id is valid
@@ -48,18 +47,18 @@ create view recent_tournament_data as
   ) maxids
   on maxids.id = ad.tournament_data_id;
 
-
 -- matchup between two programs
+-- should create match_resolutions for the matchup
 drop table if exists matchup cascade;
 create table matchup(
   creation_time bigint not null default extract(epoch from now()) * 1000,
+  tournament_id bigint not null references tournament(tournament_id),
   a_submission_id bigint not null references submission(submission_id),
   b_submission_id bigint not null references submission(submission_id),
-  primary key (a_submission_id, b_submission_id)
+  primary key (tournament_id, a_submission_id, b_submission_id)
 );
 
--- a specific match between two programs
--- there are 10 of these in total
+-- a specific match resolution between two programs
 drop table if exists match_resolution cascade;
 create table matchup_resolution (
   submission_id bigint not null references submission(submission_id),
@@ -69,6 +68,6 @@ create table matchup_resolution (
   defected bool,
   stdout text not null,
   stderr text not null,
-  primary key (submission_id, round)
+  primary key (submission_id, opponent_submission_id, round)
 );
 

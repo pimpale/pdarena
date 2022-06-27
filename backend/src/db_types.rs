@@ -3,20 +3,19 @@ pub struct Submission {
     pub submission_id: i64,
     pub creation_time: i64,
     pub creator_user_id: i64,
-    pub reference: bool,
+    pub is_testcase:bool,
     pub code: String,
 }
 
 #[derive(Clone, Debug)]
 pub struct Tournament {
-    pub tournamenta_id: i64,
+    pub tournament_id: i64,
     pub creation_time: i64,
     pub creator_user_id: i64,
-    pub public: bool,
 }
 
 #[derive(Clone, Debug)]
-pub struct ArticleData {
+pub struct TournamentData {
     pub tournament_data_id: i64,
     pub creation_time: i64,
     pub creator_user_id: i64,
@@ -28,13 +27,19 @@ pub struct ArticleData {
 
 #[derive(Clone, Debug)]
 pub struct Matchup {
-    pub a_submission_id: Vec<i64>,
-    pub b_submission_id: Vec<i64>,
     pub creation_time: i64,
-    pub a_defected: Option<bool>,
-    pub b_defected: Option<bool>,
-    pub a_defected: i64,
-    pub b_defected: i64,
-    pub section_text: String,
-    pub active: bool,
+    pub tournament_id: i64,
+    pub a_submission_id: i64,
+    pub b_submission_id: i64,
+}
+
+#[derive(Clone, Debug)]
+pub struct MatchResolution {
+    pub submission_id: i64,
+    pub opponent_submission_id: i64,
+    pub round: i64,
+    pub creation_time: i64,
+    pub defected: bool,
+    pub stdout: String,
+    pub stderr: String,
 }
