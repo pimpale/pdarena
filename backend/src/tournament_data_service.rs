@@ -1,5 +1,4 @@
 use super::db_types::*;
-use super::utils::current_time_millis;
 use tokio_postgres::GenericClient;
 use super::request;
 
@@ -12,7 +11,7 @@ impl From<tokio_postgres::row::Row> for TournamentData {
       creator_user_id: row.get("creator_user_id"),
       tournament_id: row.get("tournament_id"),
       title: row.get("title"),
-      duration_estimate: row.get("duration_estimate"),
+      description: row.get("description"),
       active:row.get("active"),
     }
   }

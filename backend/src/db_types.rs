@@ -3,8 +3,16 @@ pub struct Submission {
     pub submission_id: i64,
     pub creation_time: i64,
     pub creator_user_id: i64,
-    pub is_testcase:bool,
     pub code: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct TestcaseData {
+    pub testcase_data_id: i64,
+    pub creation_time: i64,
+    pub creator_user_id: i64,
+    pub submission_id: i64,
+    pub active:bool,
 }
 
 #[derive(Clone, Debug)]
@@ -26,11 +34,11 @@ pub struct TournamentData {
 }
 
 #[derive(Clone, Debug)]
-pub struct Matchup {
-    pub creation_time: i64,
+pub struct TournamentSubmission {
+    pub submission_id: i64,
     pub tournament_id: i64,
-    pub a_submission_id: i64,
-    pub b_submission_id: i64,
+    pub creation_time: i64,
+    pub creator_user_id: i64
 }
 
 #[derive(Clone, Debug)]
@@ -42,4 +50,5 @@ pub struct MatchResolution {
     pub defected: bool,
     pub stdout: String,
     pub stderr: String,
+    pub attempt: i64
 }

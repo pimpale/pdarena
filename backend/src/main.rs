@@ -15,9 +15,12 @@ mod request;
 mod response;
 
 // db web stuff
-mod article_data_service;
-mod article_section_service;
-mod article_service;
+mod submission_service;
+mod tournament_service;
+mod tournament_data_service;
+mod testcase_data_service;
+mod tournament_submission_service;
+mod match_resolution_service;
 
 mod api;
 mod db_types;

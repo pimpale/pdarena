@@ -12,9 +12,27 @@ create table submission(
   submission_id bigserial primary key,
   creation_time bigint not null default extract(epoch from now()) * 1000,
   creator_user_id bigint not null,
-  is_testcase bigint not null,
   code string not null
 );
+
+drop table if exists testcase_data cascade;
+create table testcase_data(
+  testcase_data_id bigserial primary key,
+  creation_time bigint not null default extract(epoch from now()) * 1000,
+  creator_user_id bigint not null,
+  submission_id bigint not null references submission(submission_id),
+  active bool not null
+);
+
+create view recent_testcase_data as
+  select td.* from testcase_data td
+  inner join (
+   select max(testcase_data_id) id 
+   from testcase_data 
+   group by submission_id
+  ) maxids
+  on maxids.id = td.testcase_data_id;
+
 
 drop table if exists tournament cascade;
 create table tournament(
@@ -39,35 +57,34 @@ create table tournament_data(
 );
 
 create view recent_tournament_data as
-  select ad.* from tournament_data ad
+  select td.* from tournament_data td
   inner join (
    select max(tournament_data_id) id 
    from tournament_data 
    group by tournament_id
   ) maxids
-  on maxids.id = ad.tournament_data_id;
+  on maxids.id = td.tournament_data_id;
 
--- matchup between two programs
--- should create match_resolutions for the matchup
-drop table if exists matchup cascade;
-create table matchup(
+drop table if exists tournament_submission cascade;
+create table tournament_submission(
   creation_time bigint not null default extract(epoch from now()) * 1000,
+  submission_id bigint not null references submission(submission_id),
   tournament_id bigint not null references tournament(tournament_id),
-  a_submission_id bigint not null references submission(submission_id),
-  b_submission_id bigint not null references submission(submission_id),
-  primary key (tournament_id, a_submission_id, b_submission_id)
+  creator_user_id bigint not null,
+  primary key (submission_id, tournament_id)
 );
 
 -- a specific match resolution between two programs
 drop table if exists match_resolution cascade;
 create table matchup_resolution (
+  creation_time bigint not null default extract(epoch from now()) * 1000,
   submission_id bigint not null references submission(submission_id),
   opponent_submission_id bigint not null references submission(submission_id),
   round bigint not null,
-  creation_time bigint not null default extract(epoch from now()) * 1000,
   defected bool,
   stdout text not null,
   stderr text not null,
-  primary key (submission_id, opponent_submission_id, round)
+  attempt bigint not null,
+  primary key (submission_id, opponent_submission_id, round, attempt)
 );
 
