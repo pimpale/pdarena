@@ -17,7 +17,6 @@ use super::tournament_service;
 use super::tournament_submission_service;
 
 use std::error::Error;
-use std::ops::Sub;
 
 use super::Config;
 
@@ -121,6 +120,7 @@ async fn fill_tournament_submission(
             .ok_or(response::AppError::TournamentNonexistent)?;
 
     Ok(response::TournamentSubmission {
+        tournament_submission_id: tournament_submission.tournament_submission_id,
         creation_time: tournament_submission.creation_time,
         creator_user_id: tournament_submission.creator_user_id,
         tournament: fill_tournament(con, tournament).await?,
@@ -225,14 +225,10 @@ pub async fn testcase_data_new(
         .ok_or(response::AppError::SubmissionNonexistent)?;
 
     // create testcase data
-    let testcase_data = testcase_data_service::add(
-        &mut sp,
-        user.user_id,
-        submission.submission_id,
-        true
-    )
-    .await
-    .map_err(report_postgres_err)?;
+    let testcase_data =
+        testcase_data_service::add(&mut sp, user.user_id, submission.submission_id, true)
+            .await
+            .map_err(report_postgres_err)?;
 
     sp.commit().await.map_err(report_postgres_err)?;
 
@@ -285,11 +281,6 @@ pub async fn tournament_data_new(
     // validate api key
     let user = get_user_if_api_key_valid(&auth_service, props.api_key).await?;
 
-    // validate duration
-    if props.duration_estimate <= 0 {
-        return Err(response::AppError::InvalidDuration);
-    }
-
     let con = &mut *db.lock().await;
 
     let mut sp = con.transaction().await.map_err(report_postgres_err)?;
@@ -310,7 +301,7 @@ pub async fn tournament_data_new(
         user.user_id,
         tournament.tournament_id,
         props.title,
-        props.duration_estimate,
+        props.description,
         props.active,
     )
     .await
@@ -322,43 +313,42 @@ pub async fn tournament_data_new(
     fill_tournament_data(con, tournament_data).await
 }
 
-pub async fn article_section_new(
+pub async fn tournament_submission_new(
     _config: Config,
     db: Db,
     auth_service: AuthService,
-    props: request::ArticleSectionNewProps,
-) -> Result<response::ArticleSection, response::AppError> {
+    props: request::TournamentSubmissionNewProps,
+) -> Result<response::TournamentSubmission, response::AppError> {
     // validate api key
     let user = get_user_if_api_key_valid(&auth_service, props.api_key).await?;
-
-    // validate that position is positive
-    if props.position < 0 {
-        return Err(response::AppError::InvalidPosition);
-    }
 
     let con = &mut *db.lock().await;
 
     let mut sp = con.transaction().await.map_err(report_postgres_err)?;
 
-    // ensure that article exists and belongs to you
-    let article = article_service::get_by_article_id(&mut sp, props.article_id)
+    // ensure that tournament exists
+    let tournament = tournament_service::get_by_tournament_id(&mut sp, props.tournament_id)
         .await
         .map_err(report_postgres_err)?
-        .ok_or(response::AppError::ArticleNonexistent)?;
-    // validate article is owned by correct user
-    if article.creator_user_id != user.user_id {
-        return Err(response::AppError::ArticleNonexistent);
+        .ok_or(response::AppError::TournamentNonexistent)?;
+
+    // ensure that submission exists and belongs to you
+    let submission = submission_service::get_by_submission_id(&mut sp, props.submission_id)
+        .await
+        .map_err(report_postgres_err)?
+        .ok_or(response::AppError::SubmissionNonexistent)?;
+
+    // validate submission is owned by correct user
+    if submission.creator_user_id != user.user_id {
+        return Err(response::AppError::SubmissionNonexistent);
     }
 
     // create article section
-    let article_section = article_section_service::add(
+    let tournament_submission = tournament_submission_service::add(
         &mut sp,
         user.user_id,
-        props.article_id,
-        props.position,
-        props.variant,
-        props.section_text,
-        props.active,
+        submission.submission_id,
+        tournament.tournament_id,
     )
     .await
     .map_err(report_postgres_err)?;
@@ -366,157 +356,128 @@ pub async fn article_section_new(
     sp.commit().await.map_err(report_postgres_err)?;
 
     // return json
-    fill_article_section(con, article_section).await
+    fill_tournament_submission(con, tournament_submission).await
 }
 
-pub async fn article_view(
+pub async fn submission_view(
     _config: Config,
     db: Db,
     auth_service: AuthService,
-    props: request::ArticleViewProps,
-) -> Result<Vec<response::Article>, response::AppError> {
+    props: request::SubmissionViewProps,
+) -> Result<Vec<response::Submission>, response::AppError> {
     // validate api key
     let user = get_user_if_api_key_valid(&auth_service, props.api_key.clone()).await?;
 
     let con = &mut *db.lock().await;
     // get users
-    let articles = article_service::query(con, props)
+    let submissions = submission_service::query(con, props)
         .await
         .map_err(report_postgres_err)?;
 
-    // return articles
-    let mut resp_articles = vec![];
-    for u in articles
+    // return submissions
+    let mut resp_submissions = vec![];
+    for u in submissions
         .into_iter()
         .filter(|u| u.creator_user_id == user.user_id)
     {
-        resp_articles.push(fill_article(con, u).await?);
+        resp_submissions.push(fill_submission(con, u).await?);
     }
 
-    Ok(resp_articles)
+    Ok(resp_submissions)
 }
 
-pub async fn article_data_view(
+pub async fn testcase_data_view(
     _config: Config,
     db: Db,
     auth_service: AuthService,
-    props: request::ArticleDataViewProps,
-) -> Result<Vec<response::ArticleData>, response::AppError> {
+    props: request::TestcaseDataViewProps,
+) -> Result<Vec<response::TestcaseData>, response::AppError> {
     // validate api key
     let user = get_user_if_api_key_valid(&auth_service, props.api_key.clone()).await?;
 
     let con = &mut *db.lock().await;
     // get users
-    let article_data = article_data_service::query(con, props)
+    let testcase_data = testcase_data_service::query(con, props)
         .await
         .map_err(report_postgres_err)?;
 
-    // return article_datas
-    let mut resp_article_datas = vec![];
-    for u in article_data
-        .into_iter()
-        .filter(|u| u.creator_user_id == user.user_id)
-    {
-        resp_article_datas.push(fill_article_data(con, u).await?);
+    // return testcase_datas
+    let mut resp_testcase_datas = vec![];
+    for u in testcase_data.into_iter() {
+        resp_testcase_datas.push(fill_testcase_data(con, u).await?);
     }
 
-    Ok(resp_article_datas)
+    Ok(resp_testcase_datas)
 }
 
-pub async fn article_section_view(
+pub async fn tournament_data_view(
     _config: Config,
     db: Db,
     auth_service: AuthService,
-    props: request::ArticleSectionViewProps,
-) -> Result<Vec<response::ArticleSection>, response::AppError> {
+    props: request::TournamentDataViewProps,
+) -> Result<Vec<response::TournamentData>, response::AppError> {
     // validate api key
     let user = get_user_if_api_key_valid(&auth_service, props.api_key.clone()).await?;
 
     let con = &mut *db.lock().await;
     // get users
-    let article_section = article_section_service::query(con, props)
+    let tournament_data = tournament_data_service::query(con, props)
         .await
         .map_err(report_postgres_err)?;
 
-    // return article_sections
-    let mut resp_article_sections = vec![];
-    for u in article_section
-        .into_iter()
-        .filter(|u| u.creator_user_id == user.user_id)
-    {
-        resp_article_sections.push(fill_article_section(con, u).await?);
+    // return tournament_datas
+    let mut resp_tournament_datas = vec![];
+    for u in tournament_data.into_iter() {
+        resp_tournament_datas.push(fill_tournament_data(con, u).await?);
     }
 
-    Ok(resp_article_sections)
+    Ok(resp_tournament_datas)
 }
 
-pub async fn article_data_public_view(
+pub async fn tournament_submission_view(
     _config: Config,
     db: Db,
-    _: AuthService,
-    props: request::ArticleDataViewPublicProps,
-) -> Result<Vec<response::ArticleData>, response::AppError> {
-    // rearrange props
-    let props = request::ArticleDataViewProps {
-        article_data_id: props.article_data_id,
-        min_creation_time: props.min_creation_time,
-        max_creation_time: props.max_creation_time,
-        creator_user_id: props.creator_user_id,
-        article_id: props.article_id,
-        title: props.title,
-        min_duration_estimate: props.min_duration_estimate,
-        max_duration_estimate: props.max_duration_estimate,
-        active: Some(true),
-        only_recent: true,
-        api_key: String::from(""),
-    };
+    auth_service: AuthService,
+    props: request::TournamentSubmissionViewProps,
+) -> Result<Vec<response::TournamentSubmission>, response::AppError> {
+    // validate api key
+    let user = get_user_if_api_key_valid(&auth_service, props.api_key.clone()).await?;
 
     let con = &mut *db.lock().await;
     // get users
-    let article_data = article_data_service::query(con, props)
+    let tournament_submission = tournament_submission_service::query(con, props)
         .await
         .map_err(report_postgres_err)?;
 
-    // return article_datas
-    let mut resp_article_datas = vec![];
-    for u in article_data.into_iter() {
-        resp_article_datas.push(fill_article_data(con, u).await?);
+    // return tournament_submissions
+    let mut resp_tournament_submissions = vec![];
+    for u in tournament_submission.into_iter() {
+        resp_tournament_submissions.push(fill_tournament_submission(con, u).await?);
     }
 
-    Ok(resp_article_datas)
+    Ok(resp_tournament_submissions)
 }
 
-pub async fn article_section_public_view(
+pub async fn match_resolution_view(
     _config: Config,
     db: Db,
-    _: AuthService,
-    props: request::ArticleSectionViewPublicProps,
-) -> Result<Vec<response::ArticleSection>, response::AppError> {
+    auth_service: AuthService,
+    props: request::MatchResolutionViewProps,
+) -> Result<Vec<response::MatchResolution>, response::AppError> {
+    // validate api key
+    let user = get_user_if_api_key_valid(&auth_service, props.api_key.clone()).await?;
+
     let con = &mut *db.lock().await;
-
-    let props = request::ArticleSectionViewProps {
-        article_section_id: props.article_section_id,
-        min_creation_time: props.min_creation_time,
-        max_creation_time: props.max_creation_time,
-        creator_user_id: props.creator_user_id,
-        article_id: props.article_id,
-        position: props.position,
-        variant: props.variant,
-        active: Some(true),
-        only_recent: true,
-        api_key: String::from(""),
-    };
-
     // get users
-    let article_section = article_section_service::query(con, props)
+    let match_resolution = match_resolution_service::query(con, props)
         .await
         .map_err(report_postgres_err)?;
 
-    // return article_sections
-    let mut resp_article_sections = vec![];
-    for u in article_section.into_iter() {
-        resp_article_sections.push(fill_article_section(con, u).await?);
+    // return match_resolutions
+    let mut resp_match_resolutions = vec![];
+    for u in match_resolution.into_iter() {
+        resp_match_resolutions.push(fill_match_resolution(con, u).await?);
     }
 
-    Ok(resp_article_sections)
+    Ok(resp_match_resolutions)
 }

@@ -35,10 +35,11 @@ pub struct TournamentData {
 
 #[derive(Clone, Debug)]
 pub struct TournamentSubmission {
+    pub tournament_submission_id: i64,
+    pub creation_time: i64,
+    pub creator_user_id: i64,
     pub submission_id: i64,
     pub tournament_id: i64,
-    pub creation_time: i64,
-    pub creator_user_id: i64
 }
 
 #[derive(Clone, Debug)]

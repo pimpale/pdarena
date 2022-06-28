@@ -58,7 +58,7 @@ pub async fn get_by_submission_id(
 pub async fn query(
     con: &mut impl GenericClient,
     props: super::request::SubmissionViewProps,
-) -> Result<Vec<TournamentSubmission>, tokio_postgres::Error> {
+) -> Result<Vec<Submission>, tokio_postgres::Error> {
     let sql = [
         "SELECT s.* FROM submission s",
         " WHERE 1 = 1",

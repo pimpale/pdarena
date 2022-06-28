@@ -70,8 +70,15 @@ pub fn api(
             config.clone(),
             db.clone(),
             auth_service.clone(),
+            warp::path!("public" / "testcase_data" / "view"),
+            handlers::testcase_data_view,
+        ),
+        adapter(
+            config.clone(),
+            db.clone(),
+            auth_service.clone(),
             warp::path!("public" / "tournament_data" / "view"),
-            handlers::tournament_view,
+            handlers::tournament_data_view,
         ),
         adapter(
             config.clone(),

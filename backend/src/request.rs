@@ -19,6 +19,8 @@ pub struct TestcaseDataNewProps {
 #[serde(rename_all = "camelCase")]
 pub struct TournamentNewProps {
   pub api_key: String,
+  pub title: String,
+  pub description: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -26,7 +28,7 @@ pub struct TournamentNewProps {
 pub struct TournamentDataNewProps {
   pub tournament_id: i64,
   pub title: String,
-  pub description: i64,
+  pub description: String,
   pub active: bool,
   pub api_key: String,
 }
@@ -79,6 +81,7 @@ pub struct TournamentDataViewProps {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TournamentSubmissionViewProps{
+  pub tournament_submission_id: Option<Vec<i64>>,
   pub min_creation_time: Option<i64>,
   pub max_creation_time: Option<i64>,
   pub creator_user_id: Option<Vec<i64>>,
