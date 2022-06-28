@@ -43,12 +43,12 @@ pub struct TournamentSubmission {
 
 #[derive(Clone, Debug)]
 pub struct MatchResolution {
-    pub match_resolution_id: i64
+    pub match_resolution_id: i64,
     pub submission_id: i64,
     pub opponent_submission_id: i64,
     pub round: i64,
     pub creation_time: i64,
-    pub defected: bool,
+    pub defected: Option<bool>,
     pub stdout: String,
     pub stderr: String,
 }

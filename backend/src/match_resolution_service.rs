@@ -24,7 +24,7 @@ pub async fn add(
     submission_id: i64,
     opponent_submission_id: i64,
     round: i64,
-    defected: bool,
+    defected: Option<bool>,
     stdout: String,
     stderr: String,
 ) -> Result<MatchResolution, tokio_postgres::Error> {

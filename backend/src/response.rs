@@ -5,10 +5,10 @@ use strum::AsRefStr;
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AppError {
     NoCapability,
-    ArticleNonexistent,
-    ArticleSectionNonexistent,
-    InvalidDuration,
-    InvalidPosition,
+    SubmissionNonexistent,
+    TournamentNonexistent,
+    SubmissionTooLong,
+    TournamentSubmissionTestcaseFails,
     DecodeError,
     InternalServerError,
     MethodNotAllowed,
@@ -38,7 +38,7 @@ pub struct Submission {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Testcase {
+pub struct TestcaseData {
     pub testcase_data_id: i64,
     pub creation_time: i64,
     pub creator_user_id: i64,
@@ -82,8 +82,9 @@ pub struct MatchResolution {
     pub submission_id: i64,
     pub opponent_submission_id: i64,
     pub round: i64,
-    pub defected: Option<i64>,
-    pub active: bool,
+    pub defected: Option<bool>,
+    pub stdout: String,
+    pub stderr: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
