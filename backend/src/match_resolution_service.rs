@@ -7,6 +7,7 @@ impl From<tokio_postgres::row::Row> for MatchResolution {
     // select * from match_resolution order only, otherwise it will fail
     fn from(row: tokio_postgres::Row) -> MatchResolution {
         MatchResolution {
+            match_resolution_id: row.get("match_resolution_id"),
             submission_id: row.get("submission_id"),
             opponent_submission_id: row.get("opponent_submission_id"),
             round: row.get("round"),
@@ -14,7 +15,6 @@ impl From<tokio_postgres::row::Row> for MatchResolution {
             defected: row.get("defected"),
             stdout: row.get("stdout"),
             stderr: row.get("stderr"),
-            attempt: row.get("attempt"),
         }
     }
 }
@@ -27,7 +27,6 @@ pub async fn add(
     defected: bool,
     stdout: String,
     stderr: String,
-    attempt: i64,
 ) -> Result<MatchResolution, tokio_postgres::Error> {
     let creation_time = current_time_millis();
 
@@ -40,11 +39,10 @@ pub async fn add(
                  round,
                  defected,
                  stdout,
-                 stderr,
-                 attempt
+                 stderr
              )
-             VALUES ($1, $2, $3, $4, $5, $6, $7)
-             RETURNING creation_time
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING match_submission_id, creation_time
             ",
             &[
                 &submission_id,
@@ -53,20 +51,19 @@ pub async fn add(
                 &defected,
                 &stdout,
                 &stderr,
-                &attempt,
             ],
         )
         .await?;
 
     Ok(MatchResolution {
-        creation_time: row.get(0),
+        match_resolution_id: row.get(0),
+        creation_time: row.get(1),
         submission_id,
         opponent_submission_id,
         round,
         defected,
         stdout,
         stderr,
-        attempt,
     })
 }
 
@@ -79,11 +76,11 @@ pub async fn query(
         " WHERE 1 = 1",
         " AND ($1::bigint   IS NULL OR mr.creation_time >= $1)",
         " AND ($2::bigint   IS NULL OR mr.creation_time <= $2)",
-        " AND ($3::bigint[] IS NULL OR mr.submission_id = ANY($3))",
-        " AND ($4::bigint[] IS NULL OR mr.opponent_submission_id = ANY($4))",
-        " AND ($5::bigint[] IS NULL OR mr.round = ANY($5))",
-        " AND ($6::bigint[] IS NULL OR mr.attempt = ANY($6))",
-        " ORDER BY mr.submission_id, mr.opponent_submission_id, mr.round, mr.attempt",
+        " AND ($3::bigint[] IS NULL OR mr.matchup_resolution_id = ANY($3))",
+        " AND ($4::bigint[] IS NULL OR mr.submission_id = ANY($4))",
+        " AND ($5::bigint[] IS NULL OR mr.opponent_submission_id = ANY($5))",
+        " AND ($6::bigint[] IS NULL OR mr.round = ANY($6))",
+        " ORDER BY mr.match_resolution_id",
     ]
     .join("\n");
 
@@ -95,10 +92,10 @@ pub async fn query(
             &[
                 &props.min_creation_time,
                 &props.max_creation_time,
+                &props.match_resolution_id,
                 &props.submission_id,
                 &props.opponent_submission_id,
                 &props.round,
-                &props.attempt,
             ],
         )
         .await?

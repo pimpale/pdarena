@@ -1,6 +1,4 @@
 use super::db_types::*;
-use super::utils::current_time_millis;
-use super::request;
 use tokio_postgres::GenericClient;
 
 impl From<tokio_postgres::row::Row> for Tournament {

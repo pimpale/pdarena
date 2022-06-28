@@ -2,37 +2,47 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ArticleNewProps {
-  pub title: String,
-  pub duration_estimate: i64,
+pub struct SubmissionNewProps {
+  pub code: String,
   pub api_key: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ArticleDataNewProps {
-  pub article_id: i64,
-  pub title: String,
-  pub duration_estimate: i64,
+pub struct TestcaseDataNewProps {
+  pub submission_id: i64,
   pub active: bool,
   pub api_key: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ArticleSectionNewProps {
-  pub article_id: i64,
-  pub position: i64,
-  pub variant: i64,
-  pub section_text: String,
+pub struct TournamentNewProps {
+  pub api_key: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TournamentDataNewProps {
+  pub tournament_id: i64,
+  pub title: String,
+  pub description: i64,
   pub active: bool,
   pub api_key: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ArticleViewProps {
-  pub article_id: Option<Vec<i64>>,
+pub struct TournamentSubmissionNewProps {
+  pub tournament_id: i64,
+  pub submission_id: i64,
+  pub api_key: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubmissionViewProps {
+  pub submission_id: Option<Vec<i64>>,
   pub min_creation_time: Option<i64>,
   pub max_creation_time: Option<i64>,
   pub creator_user_id: Option<Vec<i64>>,
@@ -41,15 +51,12 @@ pub struct ArticleViewProps {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ArticleDataViewProps {
-  pub article_data_id: Option<Vec<i64>>,
+pub struct TestcaseDataViewProps{
+  pub testcase_data_id: Option<Vec<i64>>,
   pub min_creation_time: Option<i64>,
   pub max_creation_time: Option<i64>,
   pub creator_user_id: Option<Vec<i64>>,
-  pub article_id: Option<Vec<i64>>,
-  pub title: Option<Vec<String>>,
-  pub min_duration_estimate: Option<i64>,
-  pub max_duration_estimate: Option<i64>,
+  pub submission_id: Option<Vec<i64>>,
   pub active: Option<bool>,
   pub only_recent: bool,
   pub api_key: String,
@@ -57,43 +64,39 @@ pub struct ArticleDataViewProps {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ArticleSectionViewProps {
-  pub article_section_id: Option<Vec<i64>>,
+pub struct TournamentDataViewProps {
+  pub tournament_data_id: Option<Vec<i64>>,
   pub min_creation_time: Option<i64>,
   pub max_creation_time: Option<i64>,
   pub creator_user_id: Option<Vec<i64>>,
-  pub article_id: Option<Vec<i64>>,
-  pub position: Option<Vec<i64>>,
-  pub variant: Option<Vec<i64>>,
+  pub tournament_id: Option<Vec<i64>>,
+  pub title: Option<Vec<String>>,
   pub active: Option<bool>,
   pub only_recent: bool,
   pub api_key: String,
 }
 
-// PUBLIC METHODS
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ArticleDataViewPublicProps {
-  pub article_data_id: Option<Vec<i64>>,
+pub struct TournamentSubmissionViewProps{
   pub min_creation_time: Option<i64>,
   pub max_creation_time: Option<i64>,
   pub creator_user_id: Option<Vec<i64>>,
-  pub article_id: Option<Vec<i64>>,
-  pub title: Option<Vec<String>>,
-  pub min_duration_estimate: Option<i64>,
-  pub max_duration_estimate: Option<i64>,
+  pub submission_id: Option<Vec<i64>>,
+  pub tournament_id: Option<Vec<i64>>,
+  pub api_key: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ArticleSectionViewPublicProps {
-  pub article_section_id: Option<Vec<i64>>,
+pub struct MatchResolutionViewProps{
   pub min_creation_time: Option<i64>,
   pub max_creation_time: Option<i64>,
+  pub match_resolution_id: Option<Vec<i64>>,
   pub creator_user_id: Option<Vec<i64>>,
-  pub article_id: Option<Vec<i64>>,
-  pub position: Option<Vec<i64>>,
-  pub variant: Option<Vec<i64>>,
+  pub submission_id: Option<Vec<i64>>,
+  pub opponent_submission_id: Option<Vec<i64>>,
+  pub round: Option<Vec<i64>>,
+  pub api_key: String,
 }
 

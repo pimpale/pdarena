@@ -52,13 +52,14 @@ pub async fn query(
     props: super::request::TournamentSubmissionViewProps,
 ) -> Result<Vec<TournamentSubmission>, tokio_postgres::Error> {
     let sql = [
-        "SELECT m.* FROM tournament_submission m",
+        "SELECT m.* FROM tournament_submission ts",
         " WHERE 1 = 1",
-        " AND ($1::bigint   IS NULL OR m.creation_time >= $1)",
-        " AND ($2::bigint   IS NULL OR m.creation_time <= $2)",
-        " AND ($3::bigint[] IS NULL OR m.submission_id = ANY($3))",
-        " AND ($4::bigint[] IS NULL OR m.tournament_id = ANY($4))",
-        " ORDER BY m.tournament_id, m.submission_id",
+        " AND ($1::bigint   IS NULL OR ts.creation_time >= $1)",
+        " AND ($2::bigint   IS NULL OR ts.creation_time <= $2)",
+        " AND ($3::bigint[] IS NULL OR ts.creator_user_id = ANY($3))",
+        " AND ($4::bigint[] IS NULL OR ts.submission_id = ANY($4))",
+        " AND ($5::bigint[] IS NULL OR ts.tournament_id = ANY($5))",
+        " ORDER BY ts.tournament_id, ts.submission_id",
     ]
     .join("\n");
 
@@ -70,6 +71,7 @@ pub async fn query(
             &[
                 &props.min_creation_time,
                 &props.max_creation_time,
+                &props.creator_user_id,
                 &props.submission_id,
                 &props.tournament_id,
             ],

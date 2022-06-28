@@ -56,16 +56,8 @@ pub fn api(
             config.clone(),
             db.clone(),
             auth_service.clone(),
-            warp::path!("public" / "tournament" / "submit"),
-            handlers::tournament_submit,
-        ),
-        // if any match_resolutions failed, then retry those ones
-        adapter(
-            config.clone(),
-            db.clone(),
-            auth_service.clone(),
-            warp::path!("public" / "matchup" / "retry"),
-            handlers::matchup_retry,
+            warp::path!("public" / "tournament_submission" / "new"),
+            handlers::tournament_submission_new,
         ),
         adapter(
             config.clone(),
@@ -85,8 +77,8 @@ pub fn api(
             config.clone(),
             db.clone(),
             auth_service.clone(),
-            warp::path!("public" / "matchup" / "view"),
-            handlers::matchup_view,
+            warp::path!("public" / "tournament_submission" / "view"),
+            handlers::tournament_submission_view,
         ),
         adapter(
             config.clone(),
