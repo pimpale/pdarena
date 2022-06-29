@@ -103,3 +103,8 @@ pub struct MatchResolutionViewProps{
   pub api_key: String,
 }
 
+
+pub struct MatchResolutionCallbackProps {
+  source_code: String,
+
+}

@@ -42,6 +42,13 @@ pub fn api(
             config.clone(),
             db.clone(),
             auth_service.clone(),
+            warp::path!("match_resolution_callback"),
+            handlers::match_resolution_callback,
+        ),
+        adapter(
+            config.clone(),
+            db.clone(),
+            auth_service.clone(),
             warp::path!("public" / "tournament" / "new"),
             handlers::tournament_new,
         ),

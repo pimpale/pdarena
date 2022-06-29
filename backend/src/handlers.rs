@@ -203,6 +203,17 @@ pub async fn submission_new(
     fill_submission(con, submission).await
 }
 
+pub async fn match_resolution_callback(
+    _config: Config,
+    db: Db,
+    auth_service: AuthService,
+    props: request::TestcaseDataNewProps,
+) -> Result<response::TestcaseData, response::AppError> {
+    
+}
+
+
+
 pub async fn testcase_data_new(
     _config: Config,
     db: Db,
