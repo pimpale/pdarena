@@ -159,7 +159,7 @@ where
                 .await
                 .map_err(app_error)
         })
-        .map(|x| warp::reply::json(&Ok::<ResponseType, ()>(x)))
+        .map(|x| warp::reply::json(&x))
 }
 
 // This function receives a `Rejection` and tries to return a custom
@@ -195,7 +195,7 @@ async fn handle_rejection(err: warp::Rejection) -> Result<impl warp::Reply, Infa
     }
 
     Ok(warp::reply::with_status(
-        warp::reply::json(&Err::<(), AppError>(message)),
+        warp::reply::json(&message),
         code,
     ))
 }

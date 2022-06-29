@@ -67,6 +67,13 @@ pub async fn add(
     })
 }
 
+pub async fn get_recent_by_submission_ids(
+    con: &mut impl GenericClient,
+    submission_id: 164,
+    opponent_submission_id: i64,
+
+)
+
 pub async fn query(
     con: &mut impl GenericClient,
     props: super::request::MatchResolutionViewProps,

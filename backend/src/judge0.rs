@@ -6,14 +6,14 @@ use super::response;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SubmissionRequest {
-    language_id: i64,
-    source_code: String,
+    pub language_id: i64,
+    pub source_code: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SubmissionRequestResponse {
-    token: String,
+    pub token: String,
 }
 
 #[derive(Clone)]

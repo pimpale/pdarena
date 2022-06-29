@@ -1,4 +1,5 @@
 use crate::judge0::Judge0Service;
+use crate::judge0::SubmissionRequest;
 
 use super::Db;
 use auth_service_api::client::AuthService;
@@ -176,7 +177,7 @@ pub async fn submission_new(
     let mut sp = con.transaction().await.map_err(report_postgres_err)?;
 
     // create submission
-    let submission = submission_service::add(&mut sp, user.user_id, props.code)
+    let submission = submission_service::add(&mut sp, user.user_id, props.code.clone())
         .await
         .map_err(report_postgres_err)?;
 
@@ -187,7 +188,7 @@ pub async fn submission_new(
 
     for testcase_data in testcase_datas {
         // create a null matchup (this will be replaced by a callback eventually)
-        let match_resolution = match_resolution_service::add(
+        match_resolution_service::add(
             &mut sp,
             submission.submission_id,
             testcase_data.submission_id,
@@ -198,6 +199,15 @@ pub async fn submission_new(
         )
         .await
         .map_err(report_postgres_err)?;
+
+        // submit a request
+        let resp = judge0_service
+            .send_submission(SubmissionRequest {
+                source_code: props.code.clone(),
+                language_id: 71,
+            })
+            .await?;
+        dbg!(resp);
     }
 
     sp.commit().await.map_err(report_postgres_err)?;
@@ -210,17 +220,45 @@ pub async fn match_resolution_callback(
     _config: Config,
     db: Db,
     auth_service: AuthService,
+    _judge0_service: Judge0Service,
     props: request::TestcaseDataNewProps,
 ) -> Result<(), response::AppError> {
-    
 }
 
+pub async fn do_match(
+    judge0_service: Judge0Service,
+    con: &mut impl GenericClient,
+    submission_id: i64,
+    opponent_submission_id: i64,
+) {
+    // get the current matches
+    let matches = match_resolution_service::get_recent(submission_id, opponent_submission_id)
+        .await
+        .map_err(report_postgres_err)?;
 
+    // add fake failure
+    match_resolution_service::add(
+        &mut sp,
+        submission.submission_id,
+        testcase_data.submission_id,
+        0,
+        None,
+        String::new(),
+        String::from("Judge0 Failed"),
+    )
+    .await
+    .map_err(report_postgres_err)?;
+
+    // submit judge0 request for
+
+    Ok(())
+}
 
 pub async fn testcase_data_new(
     _config: Config,
     db: Db,
     auth_service: AuthService,
+    _judge0_service: Judge0Service,
     props: request::TestcaseDataNewProps,
 ) -> Result<response::TestcaseData, response::AppError> {
     // validate api key
@@ -254,6 +292,7 @@ pub async fn tournament_new(
     _config: Config,
     db: Db,
     auth_service: AuthService,
+    _judge0_service: Judge0Service,
     props: request::TournamentNewProps,
 ) -> Result<response::TournamentData, response::AppError> {
     // validate api key
@@ -290,6 +329,7 @@ pub async fn tournament_data_new(
     _config: Config,
     db: Db,
     auth_service: AuthService,
+    _judge0_service: Judge0Service,
     props: request::TournamentDataNewProps,
 ) -> Result<response::TournamentData, response::AppError> {
     // validate api key
@@ -331,6 +371,7 @@ pub async fn tournament_submission_new(
     _config: Config,
     db: Db,
     auth_service: AuthService,
+    _judge0_service: Judge0Service,
     props: request::TournamentSubmissionNewProps,
 ) -> Result<response::TournamentSubmission, response::AppError> {
     // validate api key
@@ -377,6 +418,7 @@ pub async fn submission_view(
     _config: Config,
     db: Db,
     auth_service: AuthService,
+    _judge0_service: Judge0Service,
     props: request::SubmissionViewProps,
 ) -> Result<Vec<response::Submission>, response::AppError> {
     // validate api key
@@ -404,6 +446,7 @@ pub async fn testcase_data_view(
     _config: Config,
     db: Db,
     auth_service: AuthService,
+    _judge0_service: Judge0Service,
     props: request::TestcaseDataViewProps,
 ) -> Result<Vec<response::TestcaseData>, response::AppError> {
     // validate api key
@@ -428,6 +471,7 @@ pub async fn tournament_data_view(
     _config: Config,
     db: Db,
     auth_service: AuthService,
+    _judge0_service: Judge0Service,
     props: request::TournamentDataViewProps,
 ) -> Result<Vec<response::TournamentData>, response::AppError> {
     // validate api key
@@ -452,6 +496,7 @@ pub async fn tournament_submission_view(
     _config: Config,
     db: Db,
     auth_service: AuthService,
+    _judge0_service: Judge0Service,
     props: request::TournamentSubmissionViewProps,
 ) -> Result<Vec<response::TournamentSubmission>, response::AppError> {
     // validate api key
@@ -476,6 +521,7 @@ pub async fn match_resolution_view(
     _config: Config,
     db: Db,
     auth_service: AuthService,
+    _judge0_service: Judge0Service,
     props: request::MatchResolutionViewProps,
 ) -> Result<Vec<response::MatchResolution>, response::AppError> {
     // validate api key
