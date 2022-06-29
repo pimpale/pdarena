@@ -1,4 +1,5 @@
 use clap::Parser;
+use judge0::Judge0Service;
 use std::error::Error;
 use std::sync::Arc;
 use tokio_postgres::{Client, NoTls};
@@ -9,6 +10,9 @@ use tokio::sync::Mutex;
 mod utils;
 
 use auth_service_api::client::AuthService;
+
+// judge0
+mod judge0;
 
 // response and request
 mod request;
@@ -26,7 +30,7 @@ mod api;
 mod db_types;
 mod handlers;
 
-static SERVICE_NAME: &str = "critica-service";
+static SERVICE_NAME: &str = "pdarena-service";
 
 #[derive(Parser, Clone)]
 struct Opts {
@@ -36,6 +40,8 @@ struct Opts {
   database_url: String,
   #[clap(short, long)]
   auth_service_url: String,
+  #[clap(short, long)]
+  judge0_service_url: String,
   #[clap(short, long)]
   port: u16,
 }
@@ -53,6 +59,7 @@ async fn main() {
     database_url,
     site_external_url,
     auth_service_url,
+    judge0_service_url,
     port,
   } = Opts::parse();
 
@@ -83,6 +90,9 @@ async fn main() {
   // open connection to auth service
   let auth_service = AuthService::new(&auth_service_url).await;
 
+  // open connection to judge0 service
+  let judge0_service = Judge0Service::new(&judge0_service_url).await;
+
   let log = warp::log::custom(|info| {
     // Use a log macro, or slog, or println, or whatever!
     utils::log(utils::Event {
@@ -92,7 +102,7 @@ async fn main() {
     });
   });
 
-  let api = api::api(Config { site_external_url }, db, auth_service);
+  let api = api::api(Config { site_external_url }, db, auth_service, judge0_service);
 
   warp::serve(api.with(log)).run(([0, 0, 0, 0], port)).await;
 }

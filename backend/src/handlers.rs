@@ -1,3 +1,5 @@
+use crate::judge0::Judge0Service;
+
 use super::Db;
 use auth_service_api::client::AuthService;
 use auth_service_api::response::AuthError;
@@ -158,6 +160,7 @@ pub async fn submission_new(
     _config: Config,
     db: Db,
     auth_service: AuthService,
+    judge0_service: Judge0Service,
     props: request::SubmissionNewProps,
 ) -> Result<response::Submission, response::AppError> {
     // validate api key
@@ -208,7 +211,7 @@ pub async fn match_resolution_callback(
     db: Db,
     auth_service: AuthService,
     props: request::TestcaseDataNewProps,
-) -> Result<response::TestcaseData, response::AppError> {
+) -> Result<(), response::AppError> {
     
 }
 

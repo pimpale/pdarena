@@ -1,3 +1,5 @@
+use crate::judge0::Judge0Service;
+
 use super::handlers;
 use super::response;
 use super::response::AppError;
@@ -27,6 +29,7 @@ pub fn api(
     config: Config,
     db: Db,
     auth_service: AuthService,
+    judge0_service: Judge0Service,
 ) -> impl Filter<Extract = impl warp::Reply, Error = Infallible> + Clone {
     // public API
     combine!(
@@ -35,6 +38,7 @@ pub fn api(
             config.clone(),
             db.clone(),
             auth_service.clone(),
+            judge0_service.clone(),
             warp::path!("public" / "submission" / "new"),
             handlers::submission_new,
         ),
@@ -42,6 +46,7 @@ pub fn api(
             config.clone(),
             db.clone(),
             auth_service.clone(),
+            judge0_service.clone(),
             warp::path!("match_resolution_callback"),
             handlers::match_resolution_callback,
         ),
@@ -49,6 +54,7 @@ pub fn api(
             config.clone(),
             db.clone(),
             auth_service.clone(),
+            judge0_service.clone(),
             warp::path!("public" / "tournament" / "new"),
             handlers::tournament_new,
         ),
@@ -56,6 +62,7 @@ pub fn api(
             config.clone(),
             db.clone(),
             auth_service.clone(),
+            judge0_service.clone(),
             warp::path!("public" / "tournament_data" / "new"),
             handlers::tournament_data_new,
         ),
@@ -63,6 +70,7 @@ pub fn api(
             config.clone(),
             db.clone(),
             auth_service.clone(),
+            judge0_service.clone(),
             warp::path!("public" / "tournament_submission" / "new"),
             handlers::tournament_submission_new,
         ),
@@ -70,6 +78,7 @@ pub fn api(
             config.clone(),
             db.clone(),
             auth_service.clone(),
+            judge0_service.clone(),
             warp::path!("public" / "submission" / "view"),
             handlers::submission_view,
         ),
@@ -77,6 +86,7 @@ pub fn api(
             config.clone(),
             db.clone(),
             auth_service.clone(),
+            judge0_service.clone(),
             warp::path!("public" / "testcase_data" / "view"),
             handlers::testcase_data_view,
         ),
@@ -84,6 +94,7 @@ pub fn api(
             config.clone(),
             db.clone(),
             auth_service.clone(),
+            judge0_service.clone(),
             warp::path!("public" / "tournament_data" / "view"),
             handlers::tournament_data_view,
         ),
@@ -91,6 +102,7 @@ pub fn api(
             config.clone(),
             db.clone(),
             auth_service.clone(),
+            judge0_service.clone(),
             warp::path!("public" / "tournament_submission" / "view"),
             handlers::tournament_submission_view,
         ),
@@ -98,6 +110,7 @@ pub fn api(
             config.clone(),
             db.clone(),
             auth_service.clone(),
+            judge0_service.clone(),
             warp::path!("public" / "match_resolution" / "view"),
             handlers::match_resolution_view,
         )
@@ -121,8 +134,9 @@ fn adapter<PropsType, ResponseType, F>(
     config: Config,
     db: Db,
     auth_service: AuthService,
+    judge0_service: Judge0Service,
     filter: impl Filter<Extract = (), Error = warp::Rejection> + Clone,
-    handler: fn(Config, Db, AuthService, PropsType) -> F,
+    handler: fn(Config, Db, AuthService, Judge0Service, PropsType) -> F,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone
 where
     F: Future<Output = Result<ResponseType, AppError>> + Send,
@@ -138,9 +152,10 @@ where
         .and(with(config))
         .and(with(db))
         .and(with(auth_service))
+        .and(with(judge0_service))
         .and(warp::body::json())
-        .and_then(move |config, db, auth_service, props| async move {
-            handler(config, db, auth_service, props)
+        .and_then(move |config, db, auth_service, judge0_service, props| async move {
+            handler(config, db, auth_service, judge0_service, props)
                 .await
                 .map_err(app_error)
         })
