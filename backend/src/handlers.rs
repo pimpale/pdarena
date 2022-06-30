@@ -1,10 +1,12 @@
 use crate::judge0::Judge0Service;
 use crate::judge0::SubmissionRequest;
+use crate::response::AppError;
 
 use super::Db;
 use auth_service_api::client::AuthService;
 use auth_service_api::response::AuthError;
 use auth_service_api::response::User;
+use tokio_postgres::GenericClient;
 
 use super::request;
 use super::response;
@@ -187,27 +189,13 @@ pub async fn submission_new(
         .map_err(report_postgres_err)?;
 
     for testcase_data in testcase_datas {
-        // create a null matchup (this will be replaced by a callback eventually)
-        match_resolution_service::add(
+        do_match(
             &mut sp,
+            judge0_service.clone(),
             submission.submission_id,
-            testcase_data.submission_id,
-            0,
-            None,
-            String::new(),
-            String::from("Judge0 Failed"),
+            testcase_data.testcase_data_id,
         )
-        .await
-        .map_err(report_postgres_err)?;
-
-        // submit a request
-        let resp = judge0_service
-            .send_submission(SubmissionRequest {
-                source_code: props.code.clone(),
-                language_id: 71,
-            })
-            .await?;
-        dbg!(resp);
+        .await?;
     }
 
     sp.commit().await.map_err(report_postgres_err)?;
@@ -223,25 +211,117 @@ pub async fn match_resolution_callback(
     _judge0_service: Judge0Service,
     props: request::TestcaseDataNewProps,
 ) -> Result<(), response::AppError> {
+    Ok(())
 }
 
+// uses Judge0 to do a match between two submissions
+//
 pub async fn do_match(
-    judge0_service: Judge0Service,
     con: &mut impl GenericClient,
+    judge0_service: Judge0Service,
     submission_id: i64,
     opponent_submission_id: i64,
-) {
-    // get the current matches
-    let matches = match_resolution_service::get_recent(submission_id, opponent_submission_id)
+) -> Result<(), response::AppError> {
+    // get biggest working match number
+    let last_successful_match_round = match_resolution_service::get_last_successful_match_round(
+        con,
+        submission_id,
+        opponent_submission_id,
+    )
+    .await
+    .map_err(report_postgres_err)?;
+
+    // Three states we could be in:
+    // last_successful_match_round is None -> implies we are starting out, need to progress to next round
+    // only sub_v_opp exists -> implies we are waiting for other one to complete
+    // only opp_v_sub exists -> implies we are waiting for other one to complete
+    // both opp_v_sub and sub_v_opp exist -> need to progress to next round
+
+    if let Some(round) = last_successful_match_round {
+        let sub_v_opp = match_resolution_service::get_recent_by_submission_round(
+            con,
+            submission_id,
+            opponent_submission_id,
+            round,
+        )
         .await
         .map_err(report_postgres_err)?;
 
-    // add fake failure
+        let opp_v_sub = match_resolution_service::get_recent_by_submission_round(
+            con,
+            opponent_submission_id,
+            submission_id,
+            round,
+        )
+        .await
+        .map_err(report_postgres_err)?;
+
+        let should_wait = match (sub_v_opp, opp_v_sub) {
+            (Some(_), None) => true,
+            (None, Some(_)) => true,
+            _ => false,
+        };
+
+        if should_wait {
+            return Ok(());
+        }
+    }
+
+    let next_round = last_successful_match_round.map_or(0, |x| x + 1);
+
+    // if this is the last round do nothing
+    if next_round > 30 {
+        return Ok(());
+    }
+
+    send_match(
+        con,
+        submission_id,
+        opponent_submission_id,
+        next_round,
+        &judge0_service,
+    )
+    .await?;
+    send_match(
+        con,
+        submission_id,
+        opponent_submission_id,
+        next_round,
+        &judge0_service,
+    )
+    .await?;
+    return Ok(());
+}
+
+async fn send_match(
+    con: &mut impl GenericClient,
+    submission_id: i64,
+    opponent_submission_id: i64,
+    round: i64,
+    judge0_service: &Judge0Service,
+) -> Result<(), response::AppError> {
+    // get code for submission and opponent submission
+    let submission = submission_service::get_by_submission_id(con, submission_id)
+        .await
+        .map_err(report_postgres_err)?
+        .ok_or(AppError::SubmissionNonexistent)?;
+
+    // get opponent's history
+    let opponent_defection_history = match_resolution_service::get_defection_history(
+        con,
+        opponent_submission_id,
+        submission_id,
+        round,
+    )
+    .await
+    .map_err(report_postgres_err)?;
+
+    // create a match resolution in the case that the judge0 callback fails
     match_resolution_service::add(
-        &mut sp,
-        submission.submission_id,
-        testcase_data.submission_id,
-        0,
+        con,
+        submission_id,
+        opponent_submission_id,
+        round,
         None,
         String::new(),
         String::from("Judge0 Failed"),
@@ -249,8 +329,17 @@ pub async fn do_match(
     .await
     .map_err(report_postgres_err)?;
 
-    // submit judge0 request for
+    // create random names for submission and opponent submission
+    let submission_file_name = format!("mod_{}", utils::random_string());
+    let opponent_submission_file_name = format!("mod_{}", utils::random_string());
 
+    let resp = judge0_service
+        .send_submission(SubmissionRequest {
+            source_code: submission.code,
+            language_id: 71,
+        })
+        .await?;
+    dbg!(resp);
     Ok(())
 }
 
