@@ -71,7 +71,7 @@ async fn fill_submission(
 }
 
 async fn fill_testcase_data(
-    con: &mut tokio_postgres::Client,
+    _con: &mut tokio_postgres::Client,
     testcase: TestcaseData,
 ) -> Result<response::TestcaseData, response::AppError> {
     Ok(response::TestcaseData {
@@ -134,7 +134,7 @@ async fn fill_tournament_submission(
 }
 
 async fn fill_match_resolution(
-    con: &mut tokio_postgres::Client,
+    _con: &mut tokio_postgres::Client,
     match_resolution: MatchResolution,
 ) -> Result<response::MatchResolution, response::AppError> {
     Ok(response::MatchResolution {
@@ -538,9 +538,6 @@ pub async fn testcase_data_view(
     _judge0_service: Judge0Service,
     props: request::TestcaseDataViewProps,
 ) -> Result<Vec<response::TestcaseData>, response::AppError> {
-    // validate api key
-    let user = get_user_if_api_key_valid(&auth_service, props.api_key.clone()).await?;
-
     let con = &mut *db.lock().await;
     // get users
     let testcase_data = testcase_data_service::query(con, props)
@@ -563,9 +560,6 @@ pub async fn tournament_data_view(
     _judge0_service: Judge0Service,
     props: request::TournamentDataViewProps,
 ) -> Result<Vec<response::TournamentData>, response::AppError> {
-    // validate api key
-    let user = get_user_if_api_key_valid(&auth_service, props.api_key.clone()).await?;
-
     let con = &mut *db.lock().await;
     // get users
     let tournament_data = tournament_data_service::query(con, props)
@@ -588,9 +582,6 @@ pub async fn tournament_submission_view(
     _judge0_service: Judge0Service,
     props: request::TournamentSubmissionViewProps,
 ) -> Result<Vec<response::TournamentSubmission>, response::AppError> {
-    // validate api key
-    let user = get_user_if_api_key_valid(&auth_service, props.api_key.clone()).await?;
-
     let con = &mut *db.lock().await;
     // get users
     let tournament_submission = tournament_submission_service::query(con, props)
@@ -613,9 +604,6 @@ pub async fn match_resolution_view(
     _judge0_service: Judge0Service,
     props: request::MatchResolutionViewProps,
 ) -> Result<Vec<response::MatchResolution>, response::AppError> {
-    // validate api key
-    let user = get_user_if_api_key_valid(&auth_service, props.api_key.clone()).await?;
-
     let con = &mut *db.lock().await;
     // get users
     let match_resolution = match_resolution_service::query(con, props)
