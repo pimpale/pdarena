@@ -7,10 +7,10 @@ edition = "2021"
 
 [dependencies]
 warp = "0.3.2"
-clap = { version = "3.2.6", features = ["derive"] }
+clap = { version = "3.2.8", features = ["derive"] }
 tokio = { version = "1.19.2", features = ["full"] }
-serde = { version = "1.0.137", features = ["derive"] }
-serde_json = "1.0.81"
+serde = { version = "1.0.138", features = ["derive"] }
+serde_json = "1.0.82"
 tokio-postgres = "0.7.6"
 strum = { version = "0.24.1", features = ["derive"] }
 
@@ -18,3 +18,4 @@ auth-service-api = {version = "*", git = "https://github.com/innexgo/auth-servic
 reqwest = "0.11.11"
 zip = "0.6.2"
 rand = "0.8.5"
+base64 = "0.13.0"

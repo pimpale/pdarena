@@ -21,11 +21,30 @@ use super::tournament_data_service;
 use super::tournament_service;
 use super::tournament_submission_service;
 
+use std::collections::HashMap;
 use std::error::Error;
 
 use super::Config;
 
-fn report_postgres_err(e: tokio_postgres::Error) -> response::AppError {
+pub fn report_postgres_err(e: tokio_postgres::Error) -> response::AppError {
+    utils::log(utils::Event {
+        msg: e.to_string(),
+        source: e.source().map(|e| e.to_string()),
+        severity: utils::SeverityKind::Error,
+    });
+    response::AppError::InternalServerError
+}
+
+pub fn report_zip_err(e: zip::result::ZipError) -> response::AppError {
+    utils::log(utils::Event {
+        msg: e.to_string(),
+        source: e.source().map(|e| e.to_string()),
+        severity: utils::SeverityKind::Error,
+    });
+    response::AppError::InternalServerError
+}
+
+pub fn report_io_err(e: std::io::Error) -> response::AppError {
     utils::log(utils::Event {
         msg: e.to_string(),
         source: e.source().map(|e| e.to_string()),
@@ -284,8 +303,8 @@ pub async fn do_match(
     .await?;
     send_match(
         con,
-        submission_id,
         opponent_submission_id,
+        submission_id,
         next_round,
         &judge0_service,
     )
@@ -306,6 +325,11 @@ async fn send_match(
         .map_err(report_postgres_err)?
         .ok_or(AppError::SubmissionNonexistent)?;
 
+    let opponent_submission = submission_service::get_by_submission_id(con, opponent_submission_id)
+        .await
+        .map_err(report_postgres_err)?
+        .ok_or(AppError::SubmissionNonexistent)?;
+
     // get opponent's history
     let opponent_defection_history = match_resolution_service::get_defection_history(
         con,
@@ -315,6 +339,16 @@ async fn send_match(
     )
     .await
     .map_err(report_postgres_err)?;
+
+    let opponent_defection_history_str = opponent_defection_history
+        .into_iter()
+        .map(|x| match x {
+            None => "None",
+            Some(true) => "True",
+            Some(false) => "False",
+        })
+        .collect::<Vec<&str>>()
+        .join(",");
 
     // create a match resolution in the case that the judge0 callback fails
     match_resolution_service::add(
@@ -333,11 +367,34 @@ async fn send_match(
     let submission_file_name = format!("mod_{}", utils::random_string());
     let opponent_submission_file_name = format!("mod_{}", utils::random_string());
 
+    let harness_code = [
+        format!("import {} as Sub", submission_file_name),
+        format!("import {} as Opp", opponent_submission_file_name),
+        format!(
+            "opp_defection_history = [{}]",
+            opponent_defection_history_str
+        ),
+        String::from("result = Sub.should_defect(Opp.should_defect, opp_defection_history)"),
+        String::from("exit(5000 if result else 5001)"),
+    ]
+    .join("\n");
+
+    let run_code = ["#!/bin/bash", "exec python3 harness.py"].join("\n");
+
+    let map = [
+        (String::from("run"), run_code),
+        (String::from("harness.py"), harness_code),
+        (format!("{}.py", submission_file_name), submission.code),
+        (
+            format!("{}.py", opponent_submission_file_name),
+            opponent_submission.code,
+        ),
+    ]
+    .into_iter()
+    .collect();
+
     let resp = judge0_service
-        .send_submission(SubmissionRequest {
-            source_code: submission.code,
-            language_id: 71,
-        })
+        .send_multifile_submission(map, String::new())
         .await?;
     dbg!(resp);
     Ok(())
