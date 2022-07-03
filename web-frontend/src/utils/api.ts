@@ -1,38 +1,61 @@
 import { fetchApi, Result, apiUrl } from '@innexgo/frontend-common'
 
-export interface Article {
-  articleId: number,
+type TournamentSubmissionKind =
+  "COMPETE" |
+  "VALIDATE" |
+  "TESTCASE" |
+  "CANCEL";
+
+type Submission = {
+  submissionId: number,
+  creationTime: number,
+  creatorUserId: number,
+  code: string,
+}
+
+type Tournament = {
+  tournamentId: number,
   creationTime: number,
   creatorUserId: number,
 }
 
-export interface ArticleData {
-  articleDataId: number,
+type TournamentData = {
+  tournamentDataId: number,
   creationTime: number,
   creatorUserId: number,
-  article: Article
+  tournament: Tournament,
   title: string,
-  durationEstimate: number,
+  description: string,
   active: boolean,
 }
 
-export interface ArticleSection {
-  articleSectionId: number,
+type TournamentSubmission = {
+  tournamentSubmissionId: number,
   creationTime: number,
   creatorUserId: number,
-  article: Article,
-  position: number,
-  variant: number,
-  sectionText: string,
-  active: boolean,
+  tournament: Tournament,
+  submissionId: number,
+  kind: TournamentSubmissionKind,
+}
+
+type MatchResolution = {
+  matchResolutionId: number,
+  creationTime: number,
+  submissionId: number,
+  opponentSubmissionId: number,
+  round: number,
+  defected?: boolean,
+  stdout: string,
+  stderr: string,
 }
 
 export const AppErrorCodes = [
   "NO_CAPABILITY",
-  "ARTICLE_NONEXISTENT",
-  "ARTICLE_SECTION_NONEXISTENT",
-  "INVALID_DURATION",
-  "INVALID_POSITION",
+  "SUBMISSION_NONEXISTENT",
+  "TOURNAMENT_NONEXISTENT",
+  "SUBMISSION_TOO_LONG",
+  "TOURNAMENT_SUBMISSION_NOT_VALIDATED",
+  "TOURNAMENT_SUBMISSION_TESTCASE_FAILS",
   "DECODE_ERROR",
   "INTERNAL_SERVER_ERROR",
   "METHOD_NOT_ALLOWED",
@@ -48,127 +71,126 @@ export type AppErrorCode = typeof AppErrorCodes[number];
 
 async function fetchApiOrNetworkError<T>(url: string, props: object): Promise<Result<T, AppErrorCode>> {
   try {
-    // todo app backend automatically wraps successes with  Ok and errors with Err,
-    // so no need to wrap manually
-    return await fetchApi(url, props);
+    const [code, resp] = await fetchApi(url, props);
+    if (code % 100 === 200) {
+      return { Ok: resp }
+    } else {
+      return { Err: resp }
+    }
   } catch (_) {
     return { Err: "NETWORK" };
   }
 }
 
-const undefToStr= (s:string|undefined) =>
+const undefToStr = (s: string | undefined) =>
   s === undefined ? apiUrl() : s
 
-export interface ArticleNewProps {
-  title: string,
-  durationEstimate: number,
+type SubmissionNewProps = {
+  code: string,
   apiKey: string,
 }
 
-export function articleNew(props: ArticleNewProps, server?:string): Promise<Result<ArticleData, AppErrorCode>> {
-  return fetchApiOrNetworkError(undefToStr(server) + "/critica/article/new", props);
+export function submissionNew(props: SubmissionNewProps, server?: string): Promise<Result<Submission, AppErrorCode>> {
+  return fetchApiOrNetworkError(undefToStr(server) + "/pdarena/submission/new", props);
 }
 
-export interface ArticleDataNewProps {
-  articleId: number,
+
+type TournamentNewProps = {
+  apiKey: string,
   title: string,
-  durationEstimate: number,
+  description: string,
+}
+
+export function tournamentNew(props: TournamentNewProps, server?: string): Promise<Result<TournamentData, AppErrorCode>> {
+  return fetchApiOrNetworkError(undefToStr(server) + "/pdarena/tournament/new", props);
+}
+
+type TournamentDataNewProps = {
+  tournamentId: number,
+  title: string,
+  description: string,
   active: boolean,
   apiKey: string,
 }
 
-export function articleDataNew(props: ArticleDataNewProps, server?:string): Promise<Result<ArticleData, AppErrorCode>> {
-  return fetchApiOrNetworkError(undefToStr(server) + "/critica/article_data/new", props);
+export function tournamentDataNew(props: TournamentDataNewProps, server?: string): Promise<Result<TournamentData, AppErrorCode>> {
+  return fetchApiOrNetworkError(undefToStr(server) + "/pdarena/tournament_data/new", props);
 }
 
-export interface ArticleSectionNewProps {
-  articleId: number,
-  position: number,
-  variant: number,
-  sectionText: string,
+
+type TournamentSubmissionNewProps = {
+  tournamentId: number,
+  submissionId: number,
   active: boolean,
+  kind: TournamentSubmissionKind,
   apiKey: string,
 }
 
-export function articleSectionNew(props: ArticleSectionNewProps, server?:string): Promise<Result<ArticleSection, AppErrorCode>> {
-  return fetchApiOrNetworkError(undefToStr(server) + "/critica/article_section/new", props);
+export function tournamentSubmissionNew(props: TournamentSubmissionNewProps, server?: string): Promise<Result<TournamentSubmission, AppErrorCode>> {
+  return fetchApiOrNetworkError(undefToStr(server) + "/pdarena/tournament_submission/new", props);
 }
 
-
-export interface ArticleViewProps {
-  articleId?: number[],
+type SubmissionViewProps = {
+  submissionId?: number[],
   minCreationTime?: number,
   maxCreationTime?: number,
   creatorUserId?: number[],
   apiKey: string,
 }
 
-export function articleView(props: ArticleViewProps, server?:string): Promise<Result<Article[], AppErrorCode>> {
-  return fetchApiOrNetworkError(undefToStr(server) + "/critica/article/view", props);
+export function submissionView(props: SubmissionViewProps, server?: string): Promise<Result<Submission[], AppErrorCode>> {
+  return fetchApiOrNetworkError(undefToStr(server) + "/pdarena/submission/view", props);
 }
 
-export interface ArticleDataViewProps {
-  articleDataId?: number[],
+
+type TournamentDataViewProps = {
+  tournamentDataId?: number[],
   minCreationTime?: number,
   maxCreationTime?: number,
   creatorUserId?: number[],
-  articleId?: number[],
+  tournamentId?: number[],
   title?: string[],
-  minDurationEstimate?: number,
-  maxDurationEstimate?: number,
   active?: boolean,
   onlyRecent: boolean,
   apiKey: string,
 }
 
-
-export function articleDataView(props: ArticleDataViewProps, server?:string): Promise<Result<ArticleData[], AppErrorCode>> {
-  return fetchApiOrNetworkError(undefToStr(server) + "/critica/article_data/view", props);
+export function tournamentDataView(props: TournamentDataViewProps, server?: string): Promise<Result<TournamentData[], AppErrorCode>> {
+  return fetchApiOrNetworkError(undefToStr(server) + "/pdarena/tournament_data/view", props);
 }
 
-export interface ArticleSectionViewProps {
-  articleSectionId?: number[],
+type TournamentSubmissionViewProps = {
+  tournamentSubmissionId?: number[],
   minCreationTime?: number,
   maxCreationTime?: number,
   creatorUserId?: number[],
-  articleId?: number[],
-  position?: number[],
-  variant?: number[],
-  active?: boolean,
+  tournamentId?: number[],
+  submissionId?: number[],
+  kind?: TournamentSubmissionKind,
   onlyRecent: boolean,
   apiKey: string,
 }
 
-export function articleSectionView(props: ArticleSectionViewProps, server?:string): Promise<Result<ArticleSection[], AppErrorCode>> {
-  return fetchApiOrNetworkError(undefToStr(server) + "/critica/article_section/view", props);
+export function tournamentSubmissionView(props: TournamentSubmissionViewProps, server?: string): Promise<Result<TournamentSubmission, AppErrorCode>> {
+  return fetchApiOrNetworkError(undefToStr(server) + "/pdarena/tournament_submission/view", props);
 }
 
-export interface ArticleDataViewPublicProps {
-  articleDataId?: number[],
+
+
+type MatchResolutionViewProps = {
   minCreationTime?: number,
   maxCreationTime?: number,
+  matchResolutionId?: number[],
   creatorUserId?: number[],
-  articleId?: number[],
-  title?: string[],
-  minDurationEstimate?: number,
-  maxDurationEstimate?: number,
+  submissionId?: number[],
+  opponentSubmissionId?: number[],
+  round?: number[],
+  apiKey: string,
 }
 
-export function articleDataViewPublic(props: ArticleDataViewPublicProps, server?:string): Promise<Result<ArticleData[], AppErrorCode>> {
-  return fetchApiOrNetworkError(undefToStr(server) + "/critica/article_data/view_public", props);
+export function matchResolutionView(props: MatchResolutionViewProps, server?: string): Promise<Result<MatchResolution, AppErrorCode>> {
+  return fetchApiOrNetworkError(undefToStr(server) + "/pdarena/match_resolution/view", props);
 }
 
-export interface ArticleSectionViewPublicProps {
-  articleSectionId?: number[],
-  minCreationTime?: number,
-  maxCreationTime?: number,
-  creatorUserId?: number[],
-  articleId?: number[],
-  position?: number[],
-  variant?: number[],
-}
 
-export function articleSectionViewPublic(props: ArticleSectionViewPublicProps, server?:string): Promise<Result<ArticleSection[], AppErrorCode>> {
-  return fetchApiOrNetworkError(undefToStr(server) + "/critica/article_section/view_public", props);
-}
 
