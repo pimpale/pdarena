@@ -1,5 +1,4 @@
 use crate::judge0::Judge0Service;
-use crate::judge0::SubmissionRequest;
 use crate::response::AppError;
 
 use super::Db;
@@ -16,12 +15,10 @@ use super::utils;
 
 use super::match_resolution_service;
 use super::submission_service;
-use super::testcase_data_service;
 use super::tournament_data_service;
 use super::tournament_service;
 use super::tournament_submission_service;
 
-use std::collections::HashMap;
 use std::error::Error;
 
 use super::Config;
@@ -89,19 +86,6 @@ async fn fill_submission(
     })
 }
 
-async fn fill_testcase_data(
-    _con: &mut tokio_postgres::Client,
-    testcase: TestcaseData,
-) -> Result<response::TestcaseData, response::AppError> {
-    Ok(response::TestcaseData {
-        testcase_data_id: testcase.testcase_data_id,
-        creation_time: testcase.creation_time,
-        creator_user_id: testcase.creator_user_id,
-        submission_id: testcase.submission_id,
-        active: testcase.active,
-    })
-}
-
 async fn fill_tournament(
     _con: &mut tokio_postgres::Client,
     tournament: Tournament,
@@ -147,8 +131,9 @@ async fn fill_tournament_submission(
         tournament_submission_id: tournament_submission.tournament_submission_id,
         creation_time: tournament_submission.creation_time,
         creator_user_id: tournament_submission.creator_user_id,
-        tournament: fill_tournament(con, tournament).await?,
         submission_id: tournament_submission.submission_id,
+        tournament: fill_tournament(con, tournament).await?,
+        kind: tournament_submission.kind,
     })
 }
 
@@ -203,7 +188,7 @@ pub async fn submission_new(
         .map_err(report_postgres_err)?;
 
     // Enumerate all current testcases
-    let testcase_datas = testcase_data_service::get_recent(&mut sp)
+    let testcase_datas = tournament_submission::get_recent(&mut sp)
         .await
         .map_err(report_postgres_err)?;
 
@@ -400,40 +385,6 @@ async fn send_match(
     Ok(())
 }
 
-pub async fn testcase_data_new(
-    _config: Config,
-    db: Db,
-    auth_service: AuthService,
-    _judge0_service: Judge0Service,
-    props: request::TestcaseDataNewProps,
-) -> Result<response::TestcaseData, response::AppError> {
-    // validate api key
-    let user = get_user_if_api_key_valid(&auth_service, props.api_key).await?;
-
-    // TODO: verify user is authorized to make a testcase
-
-    let con = &mut *db.lock().await;
-
-    let mut sp = con.transaction().await.map_err(report_postgres_err)?;
-
-    // ensure that submission exists and belongs to you
-    let submission = submission_service::get_by_submission_id(&mut sp, props.submission_id)
-        .await
-        .map_err(report_postgres_err)?
-        .ok_or(response::AppError::SubmissionNonexistent)?;
-
-    // create testcase data
-    let testcase_data =
-        testcase_data_service::add(&mut sp, user.user_id, submission.submission_id, true)
-            .await
-            .map_err(report_postgres_err)?;
-
-    sp.commit().await.map_err(report_postgres_err)?;
-
-    // return json
-    fill_testcase_data(con, testcase_data).await
-}
-
 pub async fn tournament_new(
     _config: Config,
     db: Db,
@@ -588,27 +539,6 @@ pub async fn submission_view(
     Ok(resp_submissions)
 }
 
-pub async fn testcase_data_view(
-    _config: Config,
-    db: Db,
-    auth_service: AuthService,
-    _judge0_service: Judge0Service,
-    props: request::TestcaseDataViewProps,
-) -> Result<Vec<response::TestcaseData>, response::AppError> {
-    let con = &mut *db.lock().await;
-    // get users
-    let testcase_data = testcase_data_service::query(con, props)
-        .await
-        .map_err(report_postgres_err)?;
-
-    // return testcase_datas
-    let mut resp_testcase_datas = vec![];
-    for u in testcase_data.into_iter() {
-        resp_testcase_datas.push(fill_testcase_data(con, u).await?);
-    }
-
-    Ok(resp_testcase_datas)
-}
 
 pub async fn tournament_data_view(
     _config: Config,

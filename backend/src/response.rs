@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use strum::AsRefStr;
 
+use crate::request::TournamentSubmissionKind;
+
 #[derive(Clone, Debug, Serialize, Deserialize, AsRefStr)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AppError {
@@ -38,15 +40,6 @@ pub struct Submission {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TestcaseData {
-    pub testcase_data_id: i64,
-    pub creation_time: i64,
-    pub creator_user_id: i64,
-    pub submission_id: i64,
-    pub active: bool,
-}
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct Tournament {
     pub tournament_id: i64,
     pub creation_time: i64,
@@ -73,6 +66,7 @@ pub struct TournamentSubmission {
     pub creator_user_id: i64,
     pub submission_id: i64,
     pub tournament: Tournament,
+    pub kind: TournamentSubmissionKind,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

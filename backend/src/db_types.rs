@@ -1,18 +1,11 @@
+use super::request::TournamentSubmissionKind;
+
 #[derive(Clone, Debug)]
 pub struct Submission {
     pub submission_id: i64,
     pub creation_time: i64,
     pub creator_user_id: i64,
     pub code: String,
-}
-
-#[derive(Clone, Debug)]
-pub struct TestcaseData {
-    pub testcase_data_id: i64,
-    pub creation_time: i64,
-    pub creator_user_id: i64,
-    pub submission_id: i64,
-    pub active:bool,
 }
 
 #[derive(Clone, Debug)]
@@ -40,6 +33,7 @@ pub struct TournamentSubmission {
     pub creator_user_id: i64,
     pub submission_id: i64,
     pub tournament_id: i64,
+    pub kind: TournamentSubmissionKind,
 }
 
 #[derive(Clone, Debug)]

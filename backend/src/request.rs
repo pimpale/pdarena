@@ -1,17 +1,33 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SubmissionNewProps {
-  pub code: String,
-  pub api_key: String,
+use strum::AsRefStr;
+
+#[derive(Clone, Debug, Serialize, Deserialize, AsRefStr)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum TournamentSubmissionKind {
+  Compete,
+  Validate,
+  Testcase,
+  Cancel,
+}
+
+impl TryFrom<u8> for TournamentSubmissionKind {
+  type Error = u8;
+  fn try_from(val: u8) -> Result<TournamentSubmissionKind, u8> {
+    match val {
+      x if x == TournamentSubmissionKind::Compete as u8 => Ok(TournamentSubmissionKind::Compete),
+      x if x == TournamentSubmissionKind::Validate as u8 => Ok(TournamentSubmissionKind::Validate),
+      x if x == TournamentSubmissionKind::Testcase as u8 => Ok(TournamentSubmissionKind::Testcase),
+      x if x == TournamentSubmissionKind::Cancel as u8 => Ok(TournamentSubmissionKind::Cancel),
+      x => Err(x),
+    }
+  }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TestcaseDataNewProps {
-  pub submission_id: i64,
-  pub active: bool,
+pub struct SubmissionNewProps {
+  pub code: String,
   pub api_key: String,
 }
 
@@ -38,6 +54,8 @@ pub struct TournamentDataNewProps {
 pub struct TournamentSubmissionNewProps {
   pub tournament_id: i64,
   pub submission_id: i64,
+  pub active: bool,
+  pub kind: TournamentSubmissionKind,
   pub api_key: String,
 }
 
@@ -48,19 +66,6 @@ pub struct SubmissionViewProps {
   pub min_creation_time: Option<i64>,
   pub max_creation_time: Option<i64>,
   pub creator_user_id: Option<Vec<i64>>,
-  pub api_key: String,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TestcaseDataViewProps{
-  pub testcase_data_id: Option<Vec<i64>>,
-  pub min_creation_time: Option<i64>,
-  pub max_creation_time: Option<i64>,
-  pub creator_user_id: Option<Vec<i64>>,
-  pub submission_id: Option<Vec<i64>>,
-  pub active: Option<bool>,
-  pub only_recent: bool,
   pub api_key: String,
 }
 
@@ -87,6 +92,8 @@ pub struct TournamentSubmissionViewProps{
   pub creator_user_id: Option<Vec<i64>>,
   pub submission_id: Option<Vec<i64>>,
   pub tournament_id: Option<Vec<i64>>,
+  pub kind: Option<TournamentSubmissionKind>,
+  pub only_recent: bool,
   pub api_key: String,
 }
 
@@ -106,5 +113,4 @@ pub struct MatchResolutionViewProps{
 
 pub struct MatchResolutionCallbackProps {
   source_code: String,
-
 }

@@ -12,27 +12,8 @@ create table submission(
   submission_id bigserial primary key,
   creation_time bigint not null default extract(epoch from now()) * 1000,
   creator_user_id bigint not null,
-  code string not null
+  code text not null
 );
-
-drop table if exists testcase_data cascade;
-create table testcase_data(
-  testcase_data_id bigserial primary key,
-  creation_time bigint not null default extract(epoch from now()) * 1000,
-  creator_user_id bigint not null,
-  submission_id bigint not null references submission(submission_id),
-  active bool not null
-);
-
-create view recent_testcase_data as
-  select td.* from testcase_data td
-  inner join (
-   select max(testcase_data_id) id 
-   from testcase_data 
-   group by submission_id
-  ) maxids
-  on maxids.id = td.testcase_data_id;
-
 
 drop table if exists tournament cascade;
 create table tournament(
@@ -65,14 +46,26 @@ create view recent_tournament_data as
   ) maxids
   on maxids.id = td.tournament_data_id;
 
+
 drop table if exists tournament_submission cascade;
 create table tournament_submission(
   tournament_submission_id bigserial primary key,
   creation_time bigint not null default extract(epoch from now()) * 1000,
   creator_user_id bigint not null,
   submission_id bigint not null references submission(submission_id),
-  tournament_id bigint not null references tournament(tournament_id)
+  tournament_id bigint not null references tournament(tournament_id),
+  kind bigint not null -- 0: Regular, 1: Validation, 2: Testcase, 3: Cancel
 );
+
+create view recent_tournament_submission as
+  select ts.* from tournament_submission ts
+  inner join (
+   select max(tournament_submission_id) id 
+   from tournament_submission 
+   group by tournament_id, submission_id
+  ) maxids
+  on maxids.id = ts.tournament_submission_id;
+
 
 -- a specific match resolution between two programs
 drop table if exists match_resolution cascade;

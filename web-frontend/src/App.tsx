@@ -19,6 +19,11 @@ import { DefaultResetPasswordPage } from '@innexgo/auth-react-components';
 import Dashboard from './pages/Dashboard';
 import Account from './pages/Account';
 
+// Competition  Pages
+import CompetePage from './pages/Compete';
+import TournamentPage from './pages/Tournament';
+import ViwwSubmissionPage from './pages/ViewSubmission';
+
 
 // public pages
 import ArticleSearch from './pages/ArticleSearch';
@@ -60,8 +65,8 @@ function App() {
   };
 
   const branding = {
-    name: "Critica",
-    tagline: "Compare GPT3 paragraphs against human ones.",
+    name: "Open Source Prisoner's Dilemma",
+    tagline: "Battle your bots!",
     homeUrl: "/",
     registerUrl: "/register",
     tosUrl: "/terms_of_service",
@@ -84,13 +89,13 @@ function App() {
       <Route path="/email_confirm" element={<DefaultEmailConfirmPage {...apiKeyGetSetter} branding={branding} />} />
       <Route path="/parent_permission_confirm" element={<DefaultParentPermissionConfirmPage branding={branding} />} />
 
-      {/* Public Article View and Search */}
-      <Route path="/article_search" element={<ArticleSearch  branding={branding} />} />
-      <Route path="/article_view" element={<ArticleView branding={branding} />} />
-
       {/* Requires you to be logged in */}
       <Route path="/dashboard" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={Dashboard} />} />
       <Route path="/account" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={Account} />} />
+      {/* Competition Pages */}
+      <Route path="/compete" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={CompetePage} />} />
+      <Route path="/tournament" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={TournamentPage} />} />
+      <Route path="/view_submission" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={ViwwSubmissionPage} />} />
 
       {/* Error page */}
       <Route path="*" element={<Error404 />} />

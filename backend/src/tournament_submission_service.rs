@@ -1,3 +1,5 @@
+use crate::request::TournamentSubmissionKind;
+
 use super::db_types::*;
 use super::utils::current_time_millis;
 use std::convert::From;
@@ -12,6 +14,7 @@ impl From<tokio_postgres::row::Row> for TournamentSubmission {
             creator_user_id: row.get("creator_user_id"),
             submission_id: row.get("submission_id"),
             tournament_id: row.get("tournament_id"),
+            kind: (row.get::<_, i64>("kind") as u8).try_into().unwrap(),
         }
     }
 }
@@ -22,6 +25,7 @@ pub async fn add(
     creator_user_id: i64,
     submission_id: i64,
     tournament_id: i64,
+    kind: TournamentSubmissionKind,
 ) -> Result<TournamentSubmission, tokio_postgres::Error> {
     let creation_time = current_time_millis();
 
@@ -36,7 +40,12 @@ pub async fn add(
              VALUES ($1, $2, $3)
              RETURNING tournament_submission_id, creation_time
             ",
-            &[&submission_id, &tournament_id, &creator_user_id],
+            &[
+                &submission_id,
+                &tournament_id,
+                &creator_user_id,
+                &(kind.clone() as i32),
+            ],
         )
         .await?;
 
@@ -46,6 +55,7 @@ pub async fn add(
         creator_user_id,
         submission_id,
         tournament_id,
+        kind,
     })
 }
 
@@ -54,7 +64,11 @@ pub async fn query(
     props: super::request::TournamentSubmissionViewProps,
 ) -> Result<Vec<TournamentSubmission>, tokio_postgres::Error> {
     let sql = [
-        "SELECT m.* FROM tournament_submission ts",
+        if props.only_recent {
+            "SELECT ts.* FROM tournament_submission ts"
+        } else {
+            "SELECT ts.* FROM recent_tournament_submission ts"
+        },
         " WHERE 1 = 1",
         " AND ($1::bigint[] IS NULL OR ts.tournament_submission_id = ANY($1))",
         " AND ($2::bigint   IS NULL OR ts.creation_time >= $2)",
@@ -62,6 +76,7 @@ pub async fn query(
         " AND ($4::bigint[] IS NULL OR ts.creator_user_id = ANY($4))",
         " AND ($5::bigint[] IS NULL OR ts.submission_id = ANY($5))",
         " AND ($6::bigint[] IS NULL OR ts.tournament_id = ANY($6))",
+        " AND ($7::bigint   IS NULL OR ts.kind = $7)",
         " ORDER BY ts.tournament_submission_id",
     ]
     .join("\n");
@@ -78,6 +93,7 @@ pub async fn query(
                 &props.creator_user_id,
                 &props.submission_id,
                 &props.tournament_id,
+                &props.kind.map(|x| x as i64),
             ],
         )
         .await?
