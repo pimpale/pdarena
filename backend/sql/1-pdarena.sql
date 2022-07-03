@@ -52,8 +52,8 @@ create table tournament_submission(
   tournament_submission_id bigserial primary key,
   creation_time bigint not null default extract(epoch from now()) * 1000,
   creator_user_id bigint not null,
-  submission_id bigint not null references submission(submission_id),
   tournament_id bigint not null references tournament(tournament_id),
+  submission_id bigint not null references submission(submission_id),
   kind bigint not null -- 0: Regular, 1: Validation, 2: Testcase, 3: Cancel
 );
 

@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use strum::AsRefStr;
 
-#[derive(Clone, Debug, Serialize, Deserialize, AsRefStr)]
+#[derive(Clone, Debug, Serialize, Deserialize, AsRefStr, PartialEq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum TournamentSubmissionKind {
   Compete,
@@ -90,8 +90,8 @@ pub struct TournamentSubmissionViewProps{
   pub min_creation_time: Option<i64>,
   pub max_creation_time: Option<i64>,
   pub creator_user_id: Option<Vec<i64>>,
-  pub submission_id: Option<Vec<i64>>,
   pub tournament_id: Option<Vec<i64>>,
+  pub submission_id: Option<Vec<i64>>,
   pub kind: Option<TournamentSubmissionKind>,
   pub only_recent: bool,
   pub api_key: String,

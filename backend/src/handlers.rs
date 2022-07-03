@@ -1,4 +1,5 @@
 use crate::judge0::Judge0Service;
+use crate::request::TournamentSubmissionKind;
 use crate::response::AppError;
 
 use super::Db;
@@ -167,7 +168,7 @@ pub async fn submission_new(
     _config: Config,
     db: Db,
     auth_service: AuthService,
-    judge0_service: Judge0Service,
+    _judge0_service: Judge0Service,
     props: request::SubmissionNewProps,
 ) -> Result<response::Submission, response::AppError> {
     // validate api key
@@ -187,21 +188,6 @@ pub async fn submission_new(
         .await
         .map_err(report_postgres_err)?;
 
-    // Enumerate all current testcases
-    let testcase_datas = tournament_submission::get_recent(&mut sp)
-        .await
-        .map_err(report_postgres_err)?;
-
-    for testcase_data in testcase_datas {
-        do_match(
-            &mut sp,
-            judge0_service.clone(),
-            submission.submission_id,
-            testcase_data.testcase_data_id,
-        )
-        .await?;
-    }
-
     sp.commit().await.map_err(report_postgres_err)?;
 
     // return json
@@ -213,7 +199,7 @@ pub async fn match_resolution_callback(
     db: Db,
     auth_service: AuthService,
     _judge0_service: Judge0Service,
-    props: request::TestcaseDataNewProps,
+    props: request::SubmissionNewProps,
 ) -> Result<(), response::AppError> {
     Ok(())
 }
@@ -468,7 +454,7 @@ pub async fn tournament_submission_new(
     _config: Config,
     db: Db,
     auth_service: AuthService,
-    _judge0_service: Judge0Service,
+    judge0_service: Judge0Service,
     props: request::TournamentSubmissionNewProps,
 ) -> Result<response::TournamentSubmission, response::AppError> {
     // validate api key
@@ -490,17 +476,108 @@ pub async fn tournament_submission_new(
         .map_err(report_postgres_err)?
         .ok_or(response::AppError::SubmissionNonexistent)?;
 
-    // validate submission is owned by correct user
-    if submission.creator_user_id != user.user_id {
-        return Err(response::AppError::SubmissionNonexistent);
+    // validate submission is owned by correct user or tournament creator
+    if user.user_id != submission.creator_user_id && user.user_id != tournament.creator_user_id {
+        return Err(response::AppError::Unauthorized);
     }
 
-    // create article section
+    match props.kind {
+        request::TournamentSubmissionKind::Validate => {
+            // do match for each testcase
+            for testcase in tournament_submission_service::get_recent_by_kind(
+                &mut sp,
+                props.tournament_id,
+                request::TournamentSubmissionKind::Testcase,
+            )
+            .await
+            .map_err(report_postgres_err)?
+            {
+                do_match(
+                    &mut sp,
+                    judge0_service.clone(),
+                    submission.submission_id,
+                    testcase.submission_id,
+                )
+                .await?;
+            }
+        }
+        request::TournamentSubmissionKind::Compete => {
+            // ensure validation entry exists
+            let prev_submission =
+                tournament_submission_service::get_recent_by_tournament_submission(
+                    &mut sp,
+                    tournament.tournament_id,
+                    submission.submission_id,
+                )
+                .await
+                .map_err(report_postgres_err)?
+                .ok_or(AppError::TournamentSubmissionNotValidated)?;
+
+            if prev_submission.kind != TournamentSubmissionKind::Validate {
+                return Err(AppError::TournamentSubmissionNotValidated);
+            }
+
+            // ensure that testcases have all passed
+            for testcase in tournament_submission_service::get_recent_by_kind(
+                &mut sp,
+                props.tournament_id,
+                request::TournamentSubmissionKind::Testcase,
+            )
+            .await
+            .map_err(report_postgres_err)?
+            {
+
+            }
+
+            // then do match for all other submission entries
+            for opponent in tournament_submission_service::get_recent_by_kind(
+                &mut sp,
+                props.tournament_id,
+                request::TournamentSubmissionKind::Compete,
+            )
+            .await
+            .map_err(report_postgres_err)?
+            {
+                do_match(
+                    &mut sp,
+                    judge0_service.clone(),
+                    submission.submission_id,
+                    opponent.submission_id,
+                )
+                .await?;
+            }
+        }
+        request::TournamentSubmissionKind::Testcase => {
+            // then do match for all competition entries
+            for opponent in tournament_submission_service::get_recent_by_kind(
+                &mut sp,
+                props.tournament_id,
+                request::TournamentSubmissionKind::Compete,
+            )
+            .await
+            .map_err(report_postgres_err)?
+            {
+                do_match(
+                    &mut sp,
+                    judge0_service.clone(),
+                    opponent.submission_id,
+                    submission.submission_id,
+                )
+                .await?;
+            }
+        }
+        request::TournamentSubmissionKind::Cancel => {
+            // do nothing
+        }
+    }
+
+    // create tournament submission
     let tournament_submission = tournament_submission_service::add(
         &mut sp,
         user.user_id,
         submission.submission_id,
         tournament.tournament_id,
+        props.kind,
     )
     .await
     .map_err(report_postgres_err)?;
@@ -538,7 +615,6 @@ pub async fn submission_view(
 
     Ok(resp_submissions)
 }
-
 
 pub async fn tournament_data_view(
     _config: Config,
