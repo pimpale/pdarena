@@ -1,7 +1,7 @@
 import { Card, Row, Container, Col } from 'react-bootstrap';
 import { Async, AsyncProps } from 'react-async';
 import update from 'immutability-helper';
-import { Section, Loader, } from '@innexgo/common-react-components';
+import { Section, Loader, AddButton, } from '@innexgo/common-react-components';
 import ErrorMessage from '../components/ErrorMessage';
 import ExternalLayout from '../components/ExternalLayout';
 
@@ -53,6 +53,15 @@ function ResourceCard(props: ResourceCardProps) {
   )
 }
 
+type AddNewCardProps = {
+  setShow: (a: boolean) => void,
+};
+
+const AddNewCard = (props: AddNewCardProps) =>
+  <div style={{ width: "15rem", height: "100%" }}>
+    <AddButton onClick={() => props.setShow(true)} />
+  </div>
+
 
 function Dashboard(props: AuthenticatedComponentProps) {
   return <DashboardLayout {...props}>
@@ -72,8 +81,8 @@ function Dashboard(props: AuthenticatedComponentProps) {
                       key={a.tournamentDataId}
                       className="m-2"
                       title={a.title}
-                      text={`Approx Length: ${formatDistance(0, a.durationEstimate)}`}
-                      subtitle={`Updated ${format(a.creationTime, 'yyyy MMM do')}`}
+                      subtitle={a.description}
+                      text={`Created ${format(a.creationTime, "MMM D, Y")}`}
                       href={`/tournament_view?tournamentId=${a.tournament.tournamentId}`}
                     />
                   )

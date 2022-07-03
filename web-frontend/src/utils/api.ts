@@ -67,7 +67,7 @@ export const AppErrorCodes = [
 ] as const;
 
 // Creates a union export type
-export export type AppErrorCode = export typeof AppErrorCodes[number];
+export type AppErrorCode = typeof AppErrorCodes[number];
 
 async function fetchApiOrNetworkError<T>(url: string, props: object): Promise<Result<T, AppErrorCode>> {
   try {
