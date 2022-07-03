@@ -1,25 +1,25 @@
 import { fetchApi, Result, apiUrl } from '@innexgo/frontend-common'
 
-type TournamentSubmissionKind =
+export type TournamentSubmissionKind =
   "COMPETE" |
   "VALIDATE" |
   "TESTCASE" |
   "CANCEL";
 
-type Submission = {
+export type Submission = {
   submissionId: number,
   creationTime: number,
   creatorUserId: number,
   code: string,
 }
 
-type Tournament = {
+export type Tournament = {
   tournamentId: number,
   creationTime: number,
   creatorUserId: number,
 }
 
-type TournamentData = {
+export type TournamentData = {
   tournamentDataId: number,
   creationTime: number,
   creatorUserId: number,
@@ -29,7 +29,7 @@ type TournamentData = {
   active: boolean,
 }
 
-type TournamentSubmission = {
+export type TournamentSubmission = {
   tournamentSubmissionId: number,
   creationTime: number,
   creatorUserId: number,
@@ -38,7 +38,7 @@ type TournamentSubmission = {
   kind: TournamentSubmissionKind,
 }
 
-type MatchResolution = {
+export type MatchResolution = {
   matchResolutionId: number,
   creationTime: number,
   submissionId: number,
@@ -66,8 +66,8 @@ export const AppErrorCodes = [
   "UNKNOWN",
 ] as const;
 
-// Creates a union type
-export type AppErrorCode = typeof AppErrorCodes[number];
+// Creates a union export type
+export export type AppErrorCode = export typeof AppErrorCodes[number];
 
 async function fetchApiOrNetworkError<T>(url: string, props: object): Promise<Result<T, AppErrorCode>> {
   try {
@@ -85,7 +85,7 @@ async function fetchApiOrNetworkError<T>(url: string, props: object): Promise<Re
 const undefToStr = (s: string | undefined) =>
   s === undefined ? apiUrl() : s
 
-type SubmissionNewProps = {
+export type SubmissionNewProps = {
   code: string,
   apiKey: string,
 }
@@ -95,7 +95,7 @@ export function submissionNew(props: SubmissionNewProps, server?: string): Promi
 }
 
 
-type TournamentNewProps = {
+export type TournamentNewProps = {
   apiKey: string,
   title: string,
   description: string,
@@ -105,7 +105,7 @@ export function tournamentNew(props: TournamentNewProps, server?: string): Promi
   return fetchApiOrNetworkError(undefToStr(server) + "/pdarena/tournament/new", props);
 }
 
-type TournamentDataNewProps = {
+export type TournamentDataNewProps = {
   tournamentId: number,
   title: string,
   description: string,
@@ -118,7 +118,7 @@ export function tournamentDataNew(props: TournamentDataNewProps, server?: string
 }
 
 
-type TournamentSubmissionNewProps = {
+export type TournamentSubmissionNewProps = {
   tournamentId: number,
   submissionId: number,
   active: boolean,
@@ -130,7 +130,7 @@ export function tournamentSubmissionNew(props: TournamentSubmissionNewProps, ser
   return fetchApiOrNetworkError(undefToStr(server) + "/pdarena/tournament_submission/new", props);
 }
 
-type SubmissionViewProps = {
+export type SubmissionViewProps = {
   submissionId?: number[],
   minCreationTime?: number,
   maxCreationTime?: number,
@@ -143,7 +143,7 @@ export function submissionView(props: SubmissionViewProps, server?: string): Pro
 }
 
 
-type TournamentDataViewProps = {
+export type TournamentDataViewProps = {
   tournamentDataId?: number[],
   minCreationTime?: number,
   maxCreationTime?: number,
@@ -159,7 +159,7 @@ export function tournamentDataView(props: TournamentDataViewProps, server?: stri
   return fetchApiOrNetworkError(undefToStr(server) + "/pdarena/tournament_data/view", props);
 }
 
-type TournamentSubmissionViewProps = {
+export type TournamentSubmissionViewProps = {
   tournamentSubmissionId?: number[],
   minCreationTime?: number,
   maxCreationTime?: number,
@@ -177,7 +177,7 @@ export function tournamentSubmissionView(props: TournamentSubmissionViewProps, s
 
 
 
-type MatchResolutionViewProps = {
+export type MatchResolutionViewProps = {
   minCreationTime?: number,
   maxCreationTime?: number,
   matchResolutionId?: number[],

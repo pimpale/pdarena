@@ -15,12 +15,13 @@ import { DefaultSidebarLayout } from '@innexgo/auth-react-components';
 import DashboardLayout from '../components/DashboardLayout';
 
 type Data = {
-  tournamentData: ArticleData[],
+  tournamentData: TournamentData[],
 }
 
 const loadData = async (props: AsyncProps<Data>) => {
   const tournamentData =
     await tournamentDataView({
+      onlyRecent: true,
       apiKey: props.apiKey
     })
       .then(unwrap);
