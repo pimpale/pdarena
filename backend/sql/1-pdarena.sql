@@ -69,7 +69,7 @@ create view recent_tournament_submission as
 
 -- a specific match resolution between two programs
 drop table if exists match_resolution cascade;
-create table matchup_resolution (
+create table match_resolution (
   match_resolution_id bigserial primary key,
   creation_time bigint not null default extract(epoch from now()) * 1000,
   submission_id bigint not null references submission(submission_id),

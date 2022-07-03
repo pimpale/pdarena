@@ -228,7 +228,7 @@ pub async fn do_match(
     // both opp_v_sub and sub_v_opp exist -> need to progress to next round
 
     if let Some(round) = last_successful_match_round {
-        let sub_v_opp = match_resolution_service::get_recent_by_submission_round(
+        let sub_v_opp = match_resolution_service::get_recent_valid_by_submission_round(
             con,
             submission_id,
             opponent_submission_id,
@@ -237,7 +237,7 @@ pub async fn do_match(
         .await
         .map_err(report_postgres_err)?;
 
-        let opp_v_sub = match_resolution_service::get_recent_by_submission_round(
+        let opp_v_sub = match_resolution_service::get_recent_valid_by_submission_round(
             con,
             opponent_submission_id,
             submission_id,
@@ -526,7 +526,33 @@ pub async fn tournament_submission_new(
             .await
             .map_err(report_postgres_err)?
             {
+                let mut testcase_results = vec![];
+                // there can't be any errors when the submission was judging the testcase
+                testcase_results.append(
+                    &mut match_resolution_service::get_recent_by_submission(
+                        &mut sp,
+                        props.submission_id,
+                        testcase.submission_id,
+                    )
+                    .await
+                    .map_err(report_postgres_err)?,
+                );
+                // there can't be any errors when the testcase was judging the submission
+                testcase_results.append(
+                    &mut match_resolution_service::get_recent_by_submission(
+                        &mut sp,
+                        testcase.submission_id,
+                        props.submission_id,
+                    )
+                    .await
+                    .map_err(report_postgres_err)?,
+                );
 
+                for result in testcase_results {
+                    if result.defected.is_none() {
+                        return Err(AppError::TournamentSubmissionTestcaseFails);
+                    }
+                }
             }
 
             // then do match for all other submission entries

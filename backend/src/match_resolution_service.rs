@@ -67,7 +67,33 @@ pub async fn add(
     })
 }
 
-pub async fn get_recent_by_submission_round(
+pub async fn get_recent_by_submission(
+    con: &mut impl GenericClient,
+    submission_id: i64,
+    opponent_submission_id: i64,
+) -> Result<Vec<MatchResolution>, tokio_postgres::Error> {
+    let sql = [
+        "SELECT mr.* FROM recent_match_resolution mr",
+        "WHERE 1 = 1",
+        "AND mr.submission_id = $1",
+        "AND mr.opponent_submission_id = $2",
+    ]
+    .join("\n");
+
+    let stmnt = con.prepare(&sql).await?;
+
+    let results = con
+        .query_opt(&stmnt, &[&submission_id, &opponent_submission_id])
+        .await?
+        .into_iter()
+        .map(|row| row.into())
+        .collect();
+
+    Ok(results)
+}
+
+// returns the last valid submission with the given submission ids and round
+pub async fn get_recent_valid_by_submission_round(
     con: &mut impl GenericClient,
     submission_id: i64,
     opponent_submission_id: i64,

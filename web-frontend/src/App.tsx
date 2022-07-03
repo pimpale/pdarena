@@ -20,14 +20,10 @@ import Dashboard from './pages/Dashboard';
 import Account from './pages/Account';
 
 // Competition  Pages
-import CompetePage from './pages/Compete';
-import TournamentPage from './pages/Tournament';
-import ViwwSubmissionPage from './pages/ViewSubmission';
+import Compete from './pages/Compete';
+import ViewTournament from './pages/ViewTournament';
+import ViewSubmission from './pages/ViewSubmission';
 
-
-// public pages
-import ArticleSearch from './pages/ArticleSearch';
-import ArticleView from './pages/ArticleView';
 
 import DarkAdaptedIcon from "./img/critica_icon_light.png";
 import LightAdaptedIcon from "./img/critica_icon_dark.png";
@@ -93,9 +89,9 @@ function App() {
       <Route path="/dashboard" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={Dashboard} />} />
       <Route path="/account" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={Account} />} />
       {/* Competition Pages */}
-      <Route path="/compete" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={CompetePage} />} />
-      <Route path="/tournament" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={TournamentPage} />} />
-      <Route path="/view_submission" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={ViwwSubmissionPage} />} />
+      <Route path="/compete" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={Compete} />} />
+      <Route path="/view_tournament" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={ViewTournament} />} />
+      <Route path="/view_submission" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={ViewSubmission} />} />
 
       {/* Error page */}
       <Route path="*" element={<Error404 />} />
