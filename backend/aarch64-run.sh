@@ -1,7 +1,7 @@
 #!/bin/sh
 
-exec ./aarch64/critica-service \
+exec ./aarch64/pdarena-service \
   --port=8080 \
-  --database-url=postgres://ubuntu:toor@localhost/critica \
-  --site-external-url=https://critica.eaucla.org \
-  --auth-service-url=http://localhost:8079
+  --database-url=postgres://postgres:toor@localhost/pdarena \
+  --judge0-service-url=http://localhost:2358 \
+  --site-external-url=http://localhost:3000 \
