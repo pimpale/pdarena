@@ -44,7 +44,6 @@ const loadManageSubmissionPage = async (props: AsyncProps<ManageSubmissionPageDa
   })
     .then(unwrap);
 
-
   return {
     tournamentData,
     submission,
@@ -53,7 +52,7 @@ const loadManageSubmissionPage = async (props: AsyncProps<ManageSubmissionPageDa
 }
 
 function ManageSubmissionPage(props: AuthenticatedComponentProps) {
-  const submissionId = parseInt(new URLSearchParams(window.location.search).get("submissionId") ?? "");
+  const submissionId = parseInt(new URLSearchParams(window.location.search).get("tournamentId") ?? "");
 
   return (
     <DashboardLayout {...props}>

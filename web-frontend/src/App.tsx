@@ -90,8 +90,8 @@ function App() {
       <Route path="/account" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={Account} />} />
       {/* Competition Pages */}
       <Route path="/compete" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={Compete} />} />
-      <Route path="/view_tournament" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={ViewTournament} />} />
-      <Route path="/view_submission" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={ViewSubmission} />} />
+      <Route path="/tournament" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={ViewTournament} />} />
+      <Route path="/submission" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={ViewSubmission} />} />
 
       {/* Error page */}
       <Route path="*" element={<Error404 />} />

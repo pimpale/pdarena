@@ -71,11 +71,10 @@ function Home(props: BrandedComponentProps) {
           <div style={homeTextStyle}>
             <h1 style={gradText}>{props.branding.tagline}</h1>
             <h5 style={bodyText}>
-              Test your critical reading skills by
-              trying to distinguish between GPT3 completed text
-              and the real thing.
+              Use Python to determine whether or not to defect in a repeated
+              prisoner's dilemma situation.
             </h5>
-            <Button style={buttonStyle} href="/article_search">Get Started → </Button>
+            <Button style={buttonStyle} href="/dashboard">Get Started → </Button>
           </div>
         </Container>
 

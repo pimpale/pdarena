@@ -1,7 +1,7 @@
 import { Card, Row, Container, Col } from 'react-bootstrap';
 import { Async, AsyncProps } from 'react-async';
 import update from 'immutability-helper';
-import { Section, Loader, AddButton, } from '@innexgo/common-react-components';
+import { Section, Loader, AddButton, DisplayModal, } from '@innexgo/common-react-components';
 import ErrorMessage from '../components/ErrorMessage';
 import ExternalLayout from '../components/ExternalLayout';
 
@@ -13,6 +13,8 @@ import AuthenticatedComponentProps from '@innexgo/auth-react-components/lib/comp
 import { TournamentData, tournamentDataView } from '../utils/api';
 import { DefaultSidebarLayout } from '@innexgo/auth-react-components';
 import DashboardLayout from '../components/DashboardLayout';
+import React from 'react';
+import CreateTournament from '../components/CreateTournament';
 
 type Data = {
   tournamentData: TournamentData[],
@@ -22,7 +24,7 @@ const loadData = async (props: AsyncProps<Data>) => {
   const tournamentData =
     await tournamentDataView({
       onlyRecent: true,
-      apiKey: props.apiKey
+      apiKey: props.apiKey.key
     })
       .then(unwrap);
 
@@ -54,20 +56,24 @@ function ResourceCard(props: ResourceCardProps) {
 }
 
 type AddNewCardProps = {
+  className?: string,
   setShow: (a: boolean) => void,
 };
 
 const AddNewCard = (props: AddNewCardProps) =>
-  <div style={{ width: "15rem", height: "100%" }}>
+  <div className={props.className} style={{ width: "15rem", height: "100%" }}>
     <AddButton onClick={() => props.setShow(true)} />
   </div>
 
 
 function Dashboard(props: AuthenticatedComponentProps) {
+
+  const [showNewTournamentModal, setShowNewTournamentModal] = React.useState(false);
+
   return <DashboardLayout {...props}>
     <Container fluid className="py-4 px-4">
       <Section id="tournaments" name="My Tournaments">
-        <Async promiseFn={loadData}>
+        <Async promiseFn={loadData} apiKey={props.apiKey}>
           {({ setData }) => <>
             <Async.Pending><Loader /></Async.Pending>
             <Async.Rejected>
@@ -82,11 +88,24 @@ function Dashboard(props: AuthenticatedComponentProps) {
                       className="m-2"
                       title={a.title}
                       subtitle={a.description}
-                      text={`Created ${format(a.creationTime, "MMM D, Y")}`}
-                      href={`/tournament_view?tournamentId=${a.tournament.tournamentId}`}
+                      text={`Created ${format(a.creationTime, "MMM d, Y")}`}
+                      href={`/tournament?tournamentId=${a.tournament.tournamentId}`}
                     />
                   )
                 }
+                <AddNewCard className="m-2" setShow={setShowNewTournamentModal} />
+                <DisplayModal
+                  title="Create New Tournament"
+                  show={showNewTournamentModal}
+                  onClose={() => setShowNewTournamentModal(false)}
+                >
+                  <CreateTournament apiKey={props.apiKey}
+                    postSubmit={(td) => {
+                      setShowNewTournamentModal(false);
+                      setData(update(d, { tournamentData: { $push: [td] } }));
+                    }}
+                  />
+                </DisplayModal>
               </div>}
             </Async.Fulfilled>
           </>}

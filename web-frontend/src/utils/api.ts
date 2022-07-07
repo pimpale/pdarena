@@ -72,7 +72,7 @@ export type AppErrorCode = typeof AppErrorCodes[number];
 async function fetchApiOrNetworkError<T>(url: string, props: object): Promise<Result<T, AppErrorCode>> {
   try {
     const [code, resp] = await fetchApi(url, props);
-    if (code % 100 === 200) {
+    if (code >= 200 && code < 300) {
       return { Ok: resp }
     } else {
       return { Err: resp }
@@ -96,9 +96,9 @@ export function submissionNew(props: SubmissionNewProps, server?: string): Promi
 
 
 export type TournamentNewProps = {
-  apiKey: string,
   title: string,
   description: string,
+  apiKey: string,
 }
 
 export function tournamentNew(props: TournamentNewProps, server?: string): Promise<Result<TournamentData, AppErrorCode>> {
@@ -171,7 +171,7 @@ export type TournamentSubmissionViewProps = {
   apiKey: string,
 }
 
-export function tournamentSubmissionView(props: TournamentSubmissionViewProps, server?: string): Promise<Result<TournamentSubmission, AppErrorCode>> {
+export function tournamentSubmissionView(props: TournamentSubmissionViewProps, server?: string): Promise<Result<TournamentSubmission[], AppErrorCode>> {
   return fetchApiOrNetworkError(undefToStr(server) + "/pdarena/tournament_submission/view", props);
 }
 
@@ -188,7 +188,7 @@ export type MatchResolutionViewProps = {
   apiKey: string,
 }
 
-export function matchResolutionView(props: MatchResolutionViewProps, server?: string): Promise<Result<MatchResolution, AppErrorCode>> {
+export function matchResolutionView(props: MatchResolutionViewProps, server?: string): Promise<Result<MatchResolution[], AppErrorCode>> {
   return fetchApiOrNetworkError(undefToStr(server) + "/pdarena/match_resolution/view", props);
 }
 

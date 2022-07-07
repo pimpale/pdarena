@@ -12,12 +12,12 @@ module.exports = function(app) {
     })
   );
   app.use(
-    '/api/critica',
+    '/api/pdarena',
     createProxyMiddleware({
       target: 'http://127.0.0.1:8080',
       changeOrigin: true,
       pathRewrite: {
-        '^/api/critica': '/public', // rewrite path
+        '^/api/pdarena': '/public', // rewrite path
       },
     })
   );
