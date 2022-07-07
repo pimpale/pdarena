@@ -57,17 +57,6 @@ export const ViewUser = (props: {
                 <th>Username</th>
                 <td>{user.username}</td>
               </tr>
-              <tr>
-                <th>Actions</th>
-                <td>
-                  <Link
-                    title="View"
-                    icon={Eye}
-                    href={`/instructor_manage_course?courseId=${user.creatorUserId}`}
-                    variant="dark"
-                  />
-                </td>
-              </tr>
             </tbody>
           </Table>
           <ToggleExpandButton expanded={expanded} setExpanded={setExpanded} />
