@@ -134,6 +134,7 @@ async fn fill_tournament_submission(
         creator_user_id: tournament_submission.creator_user_id,
         submission_id: tournament_submission.submission_id,
         tournament: fill_tournament(con, tournament).await?,
+        name: tournament_submission.name,
         kind: tournament_submission.kind,
     })
 }
@@ -603,6 +604,7 @@ pub async fn tournament_submission_new(
         user.user_id,
         submission.submission_id,
         tournament.tournament_id,
+        props.name,
         props.kind,
     )
     .await

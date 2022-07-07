@@ -54,7 +54,7 @@ pub struct TournamentDataNewProps {
 pub struct TournamentSubmissionNewProps {
   pub tournament_id: i64,
   pub submission_id: i64,
-  pub active: bool,
+  pub name: String,
   pub kind: TournamentSubmissionKind,
   pub api_key: String,
 }

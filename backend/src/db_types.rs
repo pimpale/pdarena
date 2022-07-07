@@ -33,6 +33,7 @@ pub struct TournamentSubmission {
     pub creator_user_id: i64,
     pub tournament_id: i64,
     pub submission_id: i64,
+    pub name: String,
     pub kind: TournamentSubmissionKind,
 }
 

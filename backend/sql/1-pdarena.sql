@@ -54,6 +54,7 @@ create table tournament_submission(
   creator_user_id bigint not null,
   tournament_id bigint not null references tournament(tournament_id),
   submission_id bigint not null references submission(submission_id),
+  name text not null,
   kind bigint not null -- 0: Regular, 1: Validation, 2: Testcase, 3: Cancel
 );
 

@@ -14,6 +14,7 @@ impl From<tokio_postgres::row::Row> for TournamentSubmission {
             creator_user_id: row.get("creator_user_id"),
             submission_id: row.get("submission_id"),
             tournament_id: row.get("tournament_id"),
+            name: row.get("name"),
             kind: (row.get::<_, i64>("kind") as u8).try_into().unwrap(),
         }
     }
@@ -25,6 +26,7 @@ pub async fn add(
     creator_user_id: i64,
     submission_id: i64,
     tournament_id: i64,
+    name: String,
     kind: TournamentSubmissionKind,
 ) -> Result<TournamentSubmission, tokio_postgres::Error> {
     let creation_time = current_time_millis();
@@ -36,14 +38,17 @@ pub async fn add(
                  creator_user_id,
                  submission_id,
                  tournament_id,
+                 name,
+                 kind
              )
-             VALUES ($1, $2, $3)
+             VALUES ($1, $2, $3, $4, $5)
              RETURNING tournament_submission_id, creation_time
             ",
             &[
+                &creator_user_id,
                 &submission_id,
                 &tournament_id,
-                &creator_user_id,
+                &name,
                 &(kind.clone() as i32),
             ],
         )
@@ -55,6 +60,7 @@ pub async fn add(
         creator_user_id,
         submission_id,
         tournament_id,
+        name,
         kind,
     })
 }

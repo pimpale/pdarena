@@ -1,6 +1,6 @@
 import { Button, Card, Container, Form, Table } from 'react-bootstrap';
 import DashboardLayout from '../components/DashboardLayout';
-import { Loader, WidgetWrapper, Link } from '@innexgo/common-react-components';
+import { Loader, WidgetWrapper, Link, Section } from '@innexgo/common-react-components';
 import ManageTournamentData from '../components/ManageTournamentData';
 import ManageTournamentSubmissions from '../components/ManageTournamentSubmissions';
 import ErrorMessage from '../components/ErrorMessage';
@@ -55,28 +55,26 @@ function ManageTournamentPage(props: AuthenticatedComponentProps) {
             <Async.Pending><Loader /></Async.Pending>
             <Async.Rejected>{e => <ErrorMessage error={e} />}</Async.Rejected>
             <Async.Fulfilled<ManageTournamentPageData>>{data => <>
-              <div className="mx-3 my-3">
-                <WidgetWrapper title="Tournament Data">
-                  <span>Shows basic information about this submission.</span>
+              <Section name="Tournament Data" id="intro">
+                <div className="my-3">
                   <ManageTournamentData
-                    setTournamentData={td => setData(update(data, {tournamentData: {$set: td}})) }
+                    setTournamentData={td => setData(update(data, { tournamentData: { $set: td } }))}
                     tournamentData={data.tournamentData}
                     apiKey={props.apiKey}
                   />
-                </WidgetWrapper>
-              </div>
-
-              <div className="mx-3 my-3">
-                <WidgetWrapper title="Courses">
-                  <span>Shows the tournaments this submission is in.</span>
-                  <ManageTournamentSubmissions
-                    tournamentData={[data.tournamentData]}
-                    tournamentSubmissions={data.tournamentSubmissions}
-                    setTournamentSubmissions={tournamentSubmissions => setData(update(data, { tournamentSubmissions: { $set: tournamentSubmissions } }))}
-                    apiKey={props.apiKey}
-                  />
-                </WidgetWrapper>
-              </div>
+                </div>
+              </Section>
+              <Section name="Leaderboard" id="leaderboard">
+                <div />
+              </Section>
+              <Section name="Testcases" id="testcases">
+                <ManageTestcases
+                  tournamentSubmissions={data.tournamentSubmissions}
+                  setTournamentSubmissions={tournamentSubmissions => setData(update(data, { tournamentSubmissions: { $set: tournamentSubmissions } }))}
+                  apiKey={props.apiKey}
+                />
+              </Section>
+              <Button variant="primary">Compete!</Button>
             </>}
             </Async.Fulfilled>
           </>}
