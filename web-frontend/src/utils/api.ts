@@ -56,6 +56,7 @@ export const AppErrorCodes = [
   "SUBMISSION_TOO_LONG",
   "TOURNAMENT_SUBMISSION_NOT_VALIDATED",
   "TOURNAMENT_SUBMISSION_TESTCASE_FAILS",
+  "TOURNAMENT_ARCHIVED",
   "DECODE_ERROR",
   "INTERNAL_SERVER_ERROR",
   "METHOD_NOT_ALLOWED",
@@ -121,8 +122,8 @@ export function tournamentDataNew(props: TournamentDataNewProps, server?: string
 export type TournamentSubmissionNewProps = {
   tournamentId: number,
   submissionId: number,
-  active: boolean,
   kind: TournamentSubmissionKind,
+  name: string,
   apiKey: string,
 }
 

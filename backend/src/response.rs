@@ -12,6 +12,7 @@ pub enum AppError {
     SubmissionTooLong,
     TournamentSubmissionNotValidated,
     TournamentSubmissionTestcaseFails,
+    TournamentArchived,
     DecodeError,
     InternalServerError,
     MethodNotAllowed,

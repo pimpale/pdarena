@@ -4,17 +4,15 @@ import MonacoEditor, { ChangeHandler, EditorDidMount } from 'react-monaco-editor
 import * as monacoEditor from "monaco-editor/esm/vs/editor/editor.api";
 
 type PythonEditorProps = {
-  code: string,
-  setCode: (s:string)=>void
+  initialCode: string,
+  onChange: (s:string)=>void
 }
 
 class PythonEditor extends React.Component<PythonEditorProps, {}> {
-  private code: string;
   private editor!: monacoEditor.editor.IStandaloneCodeEditor;
 
   constructor(props: PythonEditorProps) {
     super(props);
-    this.code = props.code;
   }
 
   editorDidMount: EditorDidMount = (editor, monaco) => {
@@ -34,7 +32,7 @@ class PythonEditor extends React.Component<PythonEditorProps, {}> {
   };
 
   onChange: ChangeHandler = (newValue, e) => {
-    //this.props.setCode(newValue);
+    this.props.onChange(newValue);
   }
 
   render() {
@@ -46,7 +44,7 @@ class PythonEditor extends React.Component<PythonEditorProps, {}> {
       <MonacoEditor
         language="python"
         theme="vs-dark"
-        value={this.code}
+        defaultValue={this.props.initialCode}
         options={options}
         onChange={this.onChange}
         editorDidMount={this.editorDidMount}

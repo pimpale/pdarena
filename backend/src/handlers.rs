@@ -477,10 +477,22 @@ pub async fn tournament_submission_new(
         .map_err(report_postgres_err)?
         .ok_or(response::AppError::SubmissionNonexistent)?;
 
+
     // validate submission is owned by correct user or tournament creator
     if user.user_id != submission.creator_user_id && user.user_id != tournament.creator_user_id {
         return Err(response::AppError::Unauthorized);
     }
+
+    // validate that the tournament isn't archived
+    let tournament_data = tournament_data_service::get_recent_by_tournament_id(&mut sp, props.tournament_id)
+        .await
+        .map_err(report_postgres_err)?
+        .ok_or(response::AppError::TournamentNonexistent)?;
+
+    if !tournament_data.active {
+        return Err(response::AppError::TournamentArchived);
+    }
+
 
     match props.kind {
         request::TournamentSubmissionKind::Validate => {
