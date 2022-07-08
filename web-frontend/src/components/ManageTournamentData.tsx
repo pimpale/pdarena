@@ -207,7 +207,6 @@ const ManageTournamentData = (props: {
   const [showEditTournamentData, setShowEditTournamentData] = React.useState(false);
   const [showArchiveTournamentData, setShowArchiveTournamentData] = React.useState(false);
 
-
   return <>
     <Table hover bordered>
       <tbody>

@@ -1,4 +1,4 @@
-import { Button, Card, Container, Form, Table } from 'react-bootstrap';
+import { Card, Container, Form, Table } from 'react-bootstrap';
 import DashboardLayout from '../components/DashboardLayout';
 import { Loader, WidgetWrapper, Link, Section } from '@innexgo/common-react-components';
 import ManageTournamentData from '../components/ManageTournamentData';
@@ -15,6 +15,7 @@ import { Async, AsyncProps } from 'react-async';
 import { Submission, submissionView, TournamentData, tournamentDataView, TournamentSubmission, tournamentSubmissionView } from '../utils/api';
 import { ApiKey } from '@innexgo/frontend-auth-api';
 import { AuthenticatedComponentProps } from '@innexgo/auth-react-components';
+import ManageTournamentSubmissionsTournament from '../components/ManageTournamentSubmissionTournament';
 
 type ManageTournamentPageData = {
   tournamentData: TournamentData,
@@ -67,14 +68,23 @@ function ManageTournamentPage(props: AuthenticatedComponentProps) {
               <Section name="Leaderboard" id="leaderboard">
                 <div />
               </Section>
-              <Section name="Testcases" id="testcases">
-                <ManageTestcases
+              <Section name="Submissions" id="submissions">
+                <ManageTournamentSubmissionsTournament
                   tournamentSubmissions={data.tournamentSubmissions}
                   setTournamentSubmissions={tournamentSubmissions => setData(update(data, { tournamentSubmissions: { $set: tournamentSubmissions } }))}
                   apiKey={props.apiKey}
+                  showInactive={false}
+                  mutable={true}
                 />
               </Section>
-              <Button variant="primary">Compete!</Button>
+              <div className="text-center">
+                <a className="btn btn-primary mx-3" href={`/compete?tournamentId=${tournamentId}`}>
+                  Compete!
+                </a>
+                <a className="btn btn-primary mx-3" href={`/compete?tournamentId=${tournamentId}`}>
+                  Write a Testcase!
+                </a>
+              </div>
             </>}
             </Async.Fulfilled>
           </>}
