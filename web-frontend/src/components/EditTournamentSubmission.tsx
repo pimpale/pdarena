@@ -98,3 +98,4 @@ function EditTournamentSubmission(props: EditTournamentSubmissionProps) {
   </>
 }
 
+export default EditTournamentSubmission;

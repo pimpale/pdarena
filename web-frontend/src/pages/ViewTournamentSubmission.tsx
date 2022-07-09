@@ -1,7 +1,8 @@
+import React from 'react';
+
 import { Card, Container, Form, Table } from 'react-bootstrap';
 import DashboardLayout from '../components/DashboardLayout';
-import { Loader, WidgetWrapper, Link, Section } from '@innexgo/common-react-components';
-import ManageTournamentSubmissionData from '../components/ManageTournamentSubmissionData';
+import { Loader, WidgetWrapper, Link, Section, DisplayModal } from '@innexgo/common-react-components';
 import ErrorMessage from '../components/ErrorMessage';
 
 import update from 'immutability-helper';
@@ -14,11 +15,13 @@ import { Async, AsyncProps } from 'react-async';
 import { Submission, submissionView, TournamentData, tournamentDataView, TournamentSubmission, tournamentSubmissionView } from '../utils/api';
 import { ApiKey } from '@innexgo/frontend-auth-api';
 import { AuthenticatedComponentProps } from '@innexgo/auth-react-components';
-import ManageTournamentSubmissionSubmissionsTournament from '../components/ManageTournamentSubmissionSubmissionTournament';
+
 
 import { Prism as SyntaxHighligher } from 'react-syntax-highlighter';
 import { a11yDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
+import ArchiveTournamentSubmission from '../components/ArchiveTournamentSubmission';
+import EditTournamentSubmission from '../components/EditTournamentSubmission';
 
 
 type ManageTournamentSubmissionPageData = {
@@ -80,6 +83,9 @@ function ManageTournamentSubmissionPage(props: AuthenticatedComponentProps) {
   const tournamentId = parseInt(new URLSearchParams(window.location.search).get("tournamentId") ?? "");
   const submissionId = parseInt(new URLSearchParams(window.location.search).get("submissionId") ?? "");
 
+  const [showEditTournamentSubmissionModal, setShowEditTournamentSubmissionModal] = React.useState(false);
+  const [showCancelTournamentSubmissionModal, setShowCancelTournamentSubmissionModal] = React.useState(false);
+
   return (
     <DashboardLayout {...props}>
       <Container fluid className="py-4 px-4">
@@ -98,14 +104,21 @@ function ManageTournamentSubmissionPage(props: AuthenticatedComponentProps) {
                     style={a11yDark}
                     children={data.submission.code} />
                 }
+      <DisplayModal
+        title="Edit Tournament Submission"
+        show={showEditTournamentSubmissionModal}
+        onClose={() => setShowEditTournamentSubmissionModal(false)}
+      >
+        <EditTour session={selectedManageSession} apiKey={props.apiKey} />
+      </DisplayModal>
+      <DisplayModal
+        title="Cancel Tournament Submission"
+        show={showCancelTournamentSubmissionModal}
+        onClose={() => setShowCancelTournamentSubmissionModal(false)}
+      >
+        <ViewSession sessionData={selectedViewSessionData} expanded apiKey={props.apiKey} />
+      </DisplayModal>
 
-                <div className="my-3">
-                  <ManageTournamentSubmissionData
-                    setTournamentData={td => setData(update(data, { tournamentData: { $set: td } }))}
-                    tournamentData={data.tournamentData}
-                    apiKey={props.apiKey}
-                  />
-                </div>
               </Section>
               <Section name="Leaderboard" id="leaderboard">
                 <div />

@@ -198,11 +198,17 @@ pub async fn submission_new(
 pub async fn match_resolution_callback(
     _config: Config,
     db: Db,
-    auth_service: AuthService,
-    _judge0_service: Judge0Service,
+    _auth_service: AuthService,
+    judge0_service: Judge0Service,
     props: request::SubmissionNewProps,
 ) -> Result<(), response::AppError> {
-    Ok(())
+    let con = &mut *db.lock().await;
+    let mut sp = con.transaction().await.map_err(report_postgres_err)?;
+    do_match(
+        sp,
+        judge0_service,
+        
+  v
 }
 
 // uses Judge0 to do a match between two submissions
