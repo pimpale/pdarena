@@ -78,10 +78,10 @@ function ManageTournamentPage(props: AuthenticatedComponentProps) {
                 />
               </Section>
               <div className="text-center">
-                <a className="btn btn-primary mx-3" href={`/compete?tournamentId=${tournamentId}`}>
+                <a className="btn btn-primary mx-3" href={`/compete?tournamentId=${tournamentId}&kind=VALIDATE`}>
                   Compete!
                 </a>
-                <a className="btn btn-primary mx-3" href={`/compete?tournamentId=${tournamentId}`}>
+                <a className="btn btn-primary mx-3" href={`/compete?tournamentId=${tournamentId}&kind=TESTCASE`}>
                   Write a Testcase!
                 </a>
               </div>

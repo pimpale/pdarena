@@ -35,6 +35,7 @@ export type TournamentSubmission = {
   creatorUserId: number,
   tournament: Tournament,
   submissionId: number,
+  name: string,
   kind: TournamentSubmissionKind,
 }
 

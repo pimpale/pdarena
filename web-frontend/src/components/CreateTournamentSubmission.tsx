@@ -1,19 +1,24 @@
 import { ApiKey } from "@innexgo/frontend-auth-api"
 import { Formik, FormikErrors, FormikHelpers } from "formik"
 import { Button, Form } from "react-bootstrap"
-import { TournamentData, TournamentSubmission, submissionNew, tournamentSubmissionNew} from "../utils/api"
+import { TournamentData, TournamentSubmission, submissionNew, tournamentSubmissionNew } from "../utils/api"
 import { isErr, unwrap } from '@innexgo/frontend-common';
 
-type CreateVerifySubmissionProps = {
+import { Prism as SyntaxHighligher } from 'react-syntax-highlighter';
+import { a11yDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+
+
+type CreateTournamentSubmissionProps = {
   code: string,
   tournamentData: TournamentData,
   apiKey: ApiKey,
+  kind: ("VALIDATE" | "TESTCASE"),
   postSubmit: (ts: TournamentSubmission) => void
 }
 
 
 
-function CreateVerifySubmission(props: CreateVerifySubmissionProps) {
+function CreateTournamentSubmission(props: CreateTournamentSubmissionProps) {
 
   type CreateSubmissionValue = {
     name: string,
@@ -63,12 +68,12 @@ function CreateVerifySubmission(props: CreateVerifySubmissionProps) {
       return;
     }
 
-    
+
     const maybeTournamentSubmission = await tournamentSubmissionNew({
       tournamentId: props.tournamentData.tournament.tournamentId,
       submissionId: maybeSubmission.Ok.submissionId,
       name: values.name,
-      kind: "VALIDATE",
+      kind: props.kind,
       apiKey: props.apiKey.key,
     });
 
@@ -117,6 +122,13 @@ function CreateVerifySubmission(props: CreateVerifySubmissionProps) {
           noValidate
           onSubmit={fprops.handleSubmit} >
           <div hidden={fprops.status.successResult !== ""}>
+            <SyntaxHighligher
+              className="mx-5 mb-5"
+              showLineNumbers
+              language="python"
+              style={a11yDark}
+              children={props.code}
+            />
             <Form.Group className="mb-3">
               <Form.Label>Submission Name</Form.Label>
               <Form.Control
@@ -142,4 +154,4 @@ function CreateVerifySubmission(props: CreateVerifySubmissionProps) {
   </>
 }
 
-export default CreateVerifySubmission;
+export default CreateTournamentSubmission;

@@ -28,7 +28,7 @@ class PythonEditor extends React.Component<PythonEditorProps, {}> {
       });
       observer.observe(parentElement);
     }
-
+    this.props.onChange(this.props.initialCode);
   };
 
   onChange: ChangeHandler = (newValue, e) => {

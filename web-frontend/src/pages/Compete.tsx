@@ -7,7 +7,7 @@ import ErrorMessage from '../components/ErrorMessage';
 import ExternalLayout from '../components/ExternalLayout';
 import { getFirstOr, unwrap } from '@innexgo/frontend-common';
 import AuthenticatedComponentProps from '@innexgo/auth-react-components/lib/components/AuthenticatedComponentProps';
-import CreateVerifySubmission from '../components/CreateVerifySubmission';
+import CreateTournamentSubmission from '../components/CreateTournamentSubmission';
 import { DefaultSidebarLayout } from '@innexgo/auth-react-components';
 import DashboardLayout from '../components/DashboardLayout';
 import PythonEditor from '../components/PythonEditor';
@@ -24,6 +24,7 @@ def should_defect(opp_defection_function, opponent_defection_history):
 `
 
 type InnerCompetePageProps = {
+  kind: ("VALIDATE" | "TESTCASE")
   apiKey: ApiKey,
   tournamentData: TournamentData,
 }
@@ -32,6 +33,10 @@ function InnerCompetePage(props: InnerCompetePageProps) {
   const [code, setCode] = React.useState("");
   const [showSubmitModal, setShowSubmitModal] = React.useState(false);
   const navigate = useNavigate();
+
+  const title = props.kind === "VALIDATE"
+    ? "Submit Competing Entry"
+    : "Submit Testcase";
 
   return <div style={{ position: 'relative', height: "100vh" }}>
     <PythonEditor
@@ -50,12 +55,13 @@ function InnerCompetePage(props: InnerCompetePageProps) {
       Submit
     </button>
     <DisplayModal
-      title="Submit"
+      title={title}
       show={showSubmitModal}
       onClose={() => setShowSubmitModal(false)}
     >
-      <CreateVerifySubmission
+      <CreateTournamentSubmission
         code={code}
+        kind={props.kind}
         apiKey={props.apiKey}
         tournamentData={props.tournamentData}
         postSubmit={ts => navigate(`/tournament_submission?tournamentSubmissionId=${ts.tournamentSubmissionId}`)}
@@ -86,13 +92,18 @@ const loadCompetePageData = async (props: AsyncProps<CompetePageData>): Promise<
 
 function CompetePage(props: AuthenticatedComponentProps) {
   const tournamentId = parseInt(new URLSearchParams(window.location.search).get("tournamentId") ?? "");
+  const kind = new URLSearchParams(window.location.search).get("kind");
+
+  if (kind !== "VALIDATE" && kind !== "TESTCASE") {
+    return <ErrorMessage error={new Error("Unknown submission type")} />
+  }
 
   return <DashboardLayout {...props} >
     <Async promiseFn={loadCompetePageData} apiKey={props.apiKey} tournamentId={tournamentId}>
       <Async.Pending><Loader /></Async.Pending>
       <Async.Rejected>{e => <ErrorMessage error={e} />}</Async.Rejected>
       <Async.Fulfilled<CompetePageData>>{d =>
-        <InnerCompetePage apiKey={props.apiKey} tournamentData={d.tournamentData} />
+        <InnerCompetePage apiKey={props.apiKey} tournamentData={d.tournamentData} kind={kind} />
       }</Async.Fulfilled>
     </Async>
   </DashboardLayout>

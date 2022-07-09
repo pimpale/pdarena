@@ -49,7 +49,7 @@ pub async fn add(
                 &submission_id,
                 &tournament_id,
                 &name,
-                &(kind.clone() as i32),
+                &(kind.clone() as i64),
             ],
         )
         .await?;
