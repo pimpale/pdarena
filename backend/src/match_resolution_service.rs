@@ -83,7 +83,7 @@ pub async fn get_recent_by_submission(
     let stmnt = con.prepare(&sql).await?;
 
     let results = con
-        .query_opt(&stmnt, &[&submission_id, &opponent_submission_id])
+        .query(&stmnt, &[&submission_id, &opponent_submission_id])
         .await?
         .into_iter()
         .map(|row| row.into())

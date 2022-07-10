@@ -22,8 +22,7 @@ import Account from './pages/Account';
 // Competition  Pages
 import Compete from './pages/Compete';
 import ViewTournament from './pages/ViewTournament';
-import ViewSubmission from './pages/ViewSubmission';
-import ViewTournamentSubmission from './pages/ViewSubmission';
+import ViewTournamentSubmission from './pages/ViewTournamentSubmission';
 
 
 import DarkAdaptedIcon from "./img/critica_icon_light.png";
@@ -92,7 +91,6 @@ function App() {
       {/* Competition Pages */}
       <Route path="/compete" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={Compete} />} />
       <Route path="/tournament" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={ViewTournament} />} />
-      <Route path="/submission" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={ViewSubmission} />} />
       <Route path="/tournament_submission" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={ViewTournamentSubmission} />} />
 
       {/* Error page */}

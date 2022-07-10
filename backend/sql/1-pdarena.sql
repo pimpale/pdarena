@@ -81,3 +81,13 @@ create table match_resolution (
   stderr text not null
 );
 
+create view recent_match_resolution as
+  select mr.* from match_resolution mr
+  inner join (
+   select max(match_resolution_id) id 
+   from match_resolution 
+   group by submission_id, opponent_submission_id, round
+  ) maxids
+  on maxids.id = mr.match_resolution_id;
+
+

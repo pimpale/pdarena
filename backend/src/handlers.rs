@@ -195,21 +195,6 @@ pub async fn submission_new(
     fill_submission(con, submission).await
 }
 
-pub async fn match_resolution_callback(
-    _config: Config,
-    db: Db,
-    _auth_service: AuthService,
-    judge0_service: Judge0Service,
-    props: request::SubmissionNewProps,
-) -> Result<(), response::AppError> {
-    let con = &mut *db.lock().await;
-    let mut sp = con.transaction().await.map_err(report_postgres_err)?;
-    do_match(
-        sp,
-        judge0_service,
-        
-  v
-}
 
 // uses Judge0 to do a match between two submissions
 //
@@ -218,6 +203,7 @@ pub async fn do_match(
     judge0_service: Judge0Service,
     submission_id: i64,
     opponent_submission_id: i64,
+    judge0_callback_url: &str,
 ) -> Result<(), response::AppError> {
     // get biggest working match number
     let last_successful_match_round = match_resolution_service::get_last_successful_match_round(
@@ -276,6 +262,7 @@ pub async fn do_match(
         submission_id,
         opponent_submission_id,
         next_round,
+        judge0_callback_url,
         &judge0_service,
     )
     .await?;
@@ -284,6 +271,7 @@ pub async fn do_match(
         opponent_submission_id,
         submission_id,
         next_round,
+        judge0_callback_url,
         &judge0_service,
     )
     .await?;
@@ -295,6 +283,7 @@ async fn send_match(
     submission_id: i64,
     opponent_submission_id: i64,
     round: i64,
+    judge0_callback_url: &str,
     judge0_service: &Judge0Service,
 ) -> Result<(), response::AppError> {
     // get code for submission and opponent submission
@@ -372,7 +361,7 @@ async fn send_match(
     .collect();
 
     let resp = judge0_service
-        .send_multifile_submission(map, String::new())
+        .send_multifile_submission(map)
         .await?;
     dbg!(resp);
     Ok(())

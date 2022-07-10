@@ -10,17 +10,22 @@ use super::handlers::report_io_err;
 use super::handlers::report_zip_err;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct SubmissionRequest {
     pub language_id: i64,
     pub additional_files: String,
-    pub callback_url: Option<String>,
 }
 
+
+// stdout,time,memory,stderr,token,compile_output,message,status
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SubmissionRequestResponse {
+pub struct SubmissionResponse {
+    pub stdout: String,
+    pub stderr: String,
+    pub time: f64,
+    pub memory: f64,
     pub token: String,
+    pub message: String,
+    pub exit_code: i64,
 }
 
 #[derive(Clone)]
@@ -42,9 +47,9 @@ impl Judge0Service {
     pub async fn send_submission(
         &self,
         request: SubmissionRequest,
-    ) -> Result<SubmissionRequestResponse, response::AppError> {
+    ) -> Result<SubmissionResponse, response::AppError> {
         self.client
-            .post(format!("{}/submissions/?wait=false", self.service_url))
+            .post(format!("{}/submissions/?wait=true&fields=stdout,time,memory,stderr,token,message,exit_code", self.service_url))
             .json(&request)
             .send()
             .await
@@ -57,8 +62,7 @@ impl Judge0Service {
     pub async fn send_multifile_submission(
         &self,
         map: HashMap<String, String>,
-        callback_url: String,
-    ) -> Result<SubmissionRequestResponse, response::AppError> {
+    ) -> Result<SubmissionResponse, response::AppError> {
         // create zip of codes
         let zip_options =
             zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Stored);
@@ -76,7 +80,6 @@ impl Judge0Service {
 
         self.send_submission(SubmissionRequest {
             language_id: 89,
-            callback_url: Some(callback_url),
             additional_files,
         })
         .await

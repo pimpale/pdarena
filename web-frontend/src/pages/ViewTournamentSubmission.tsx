@@ -104,21 +104,30 @@ function ManageTournamentSubmissionPage(props: AuthenticatedComponentProps) {
                     style={a11yDark}
                     children={data.submission.code} />
                 }
-      <DisplayModal
-        title="Edit Tournament Submission"
-        show={showEditTournamentSubmissionModal}
-        onClose={() => setShowEditTournamentSubmissionModal(false)}
-      >
-        <EditTour session={selectedManageSession} apiKey={props.apiKey} />
-      </DisplayModal>
-      <DisplayModal
-        title="Cancel Tournament Submission"
-        show={showCancelTournamentSubmissionModal}
-        onClose={() => setShowCancelTournamentSubmissionModal(false)}
-      >
-        <ViewSession sessionData={selectedViewSessionData} expanded apiKey={props.apiKey} />
-      </DisplayModal>
-
+                <div>
+                </div>
+                <DisplayModal
+                  title="Edit Tournament Submission"
+                  show={showEditTournamentSubmissionModal}
+                  onClose={() => setShowEditTournamentSubmissionModal(false)}
+                >
+                  <EditTournamentSubmission
+                    tournamentSubmission={data.tournamentSubmission}
+                    setTournamentSubmission={ts => setData(update(data, { tournamentSubmission: { $set: ts } }))}
+                    apiKey={props.apiKey}
+                  />
+                </DisplayModal>
+                <DisplayModal
+                  title="Cancel Tournament Submission"
+                  show={showCancelTournamentSubmissionModal}
+                  onClose={() => setShowCancelTournamentSubmissionModal(false)}
+                >
+                  <ArchiveTournamentSubmission
+                    tournamentSubmission={data.tournamentSubmission}
+                    setTournamentSubmission={ts => setData(update(data, { tournamentSubmission: { $set: ts } }))}
+                    apiKey={props.apiKey}
+                  />
+                </DisplayModal>
               </Section>
               <Section name="Leaderboard" id="leaderboard">
                 <div />

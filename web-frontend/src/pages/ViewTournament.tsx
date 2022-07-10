@@ -2,7 +2,6 @@ import { Card, Container, Form, Table } from 'react-bootstrap';
 import DashboardLayout from '../components/DashboardLayout';
 import { Loader, WidgetWrapper, Link, Section } from '@innexgo/common-react-components';
 import ManageTournamentData from '../components/ManageTournamentData';
-import ManageTournamentSubmissions from '../components/ManageTournamentSubmissions';
 import ErrorMessage from '../components/ErrorMessage';
 
 import update from 'immutability-helper';
