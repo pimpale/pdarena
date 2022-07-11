@@ -2,9 +2,11 @@ import React from 'react';
 import { Table } from 'react-bootstrap';
 import update from 'immutability-helper';
 import { ApiKey } from '@innexgo/frontend-auth-api';
-import { AddButton, DisplayModal } from '@innexgo/common-react-components';
+import { Link, AddButton, DisplayModal } from '@innexgo/common-react-components';
 import { TournamentSubmission } from '../utils/api';
 import { ViewUser } from './ViewData';
+
+import { Eye as ViewIcon } from 'react-bootstrap-icons';
 
 type ManageTournamentSubmissionRowProps = {
   tournamentSubmission: TournamentSubmission,
@@ -15,9 +17,16 @@ type ManageTournamentSubmissionRowProps = {
 
 function ManageTournamentSubmissionRow(props: ManageTournamentSubmissionRowProps) {
   return <tr>
-    <td>props.tournamentSubmission.name</td>
+    <td>{props.tournamentSubmission.name}</td>
     <td><ViewUser userId={props.tournamentSubmission.creatorUserId} apiKey={props.apiKey} expanded={false} /></td>
-    <td> </td>
+    <td>{props.tournamentSubmission.kind}</td>
+    <td>
+      <Link
+        title="View"
+        icon={ViewIcon}
+        href={`/tournament_submission?tournamentId=${props.tournamentSubmission.tournament.tournamentId}&submissionId=${props.tournamentSubmission.submissionId}`}
+      />
+    </td>
   </tr>
 }
 
@@ -31,7 +40,6 @@ type ManageTournamentSubmissionsTournamentProps = {
 }
 
 function ManageTournamentSubmissionsTournament(props: ManageTournamentSubmissionsTournamentProps) {
-
   // this list has an object consisting of both the index in the real array and the object constructs a new objec
   const activeTemplates = props.tournamentSubmissions
     // enumerate data + index
@@ -47,6 +55,7 @@ function ManageTournamentSubmissionsTournament(props: ManageTournamentSubmission
       <tr>
         <th>Name</th>
         <th>Creator</th>
+        <th>Status</th>
         <th>Actions</th>
       </tr>
     </thead>

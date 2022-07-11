@@ -15,16 +15,31 @@ pub struct SubmissionRequest {
     pub additional_files: String,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SubmissionStatus {
+    id: i64,
+    description: String,
+}
 
 // stdout,time,memory,stderr,token,compile_output,message,status
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SubmissionResponse {
+    pub stdout: Option<String>,
+    pub stderr: Option<String>,
+    pub time: Option<f64>,
+    pub memory: Option<f64>,
+    pub token: String,
+    pub message: String,
+    pub exit_code: Option<i64>,
+    pub status: SubmissionStatus,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SubmissionSummary {
     pub stdout: String,
     pub stderr: String,
     pub time: f64,
     pub memory: f64,
-    pub token: String,
-    pub message: String,
     pub exit_code: i64,
 }
 
@@ -48,21 +63,23 @@ impl Judge0Service {
         &self,
         request: SubmissionRequest,
     ) -> Result<SubmissionResponse, response::AppError> {
-        self.client
-            .post(format!("{}/submissions/?wait=true&fields=stdout,time,memory,stderr,token,message,exit_code", self.service_url))
+        let response = self.client
+            .post(format!("{}/submissions/?wait=true&fields=status,stdout,time,memory,stderr,token,message,exit_code", self.service_url))
             .json(&request)
             .send()
             .await
             .map_err(|_| response::AppError::Network)?
             .json()
             .await
-            .map_err(|_| response::AppError::DecodeError)?
+            .map_err(|_| response::AppError::DecodeError)?;
+
+        Ok(response)
     }
 
     pub async fn send_multifile_submission(
         &self,
         map: HashMap<String, String>,
-    ) -> Result<SubmissionResponse, response::AppError> {
+    ) -> Result<SubmissionSummary, response::AppError> {
         // create zip of codes
         let zip_options =
             zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Stored);
@@ -78,10 +95,13 @@ impl Judge0Service {
 
         let additional_files = base64::encode(&zip_buf);
 
-        self.send_submission(SubmissionRequest {
+        let response = self.send_submission(SubmissionRequest {
             language_id: 89,
             additional_files,
         })
-        .await
+        .await;
+
+        dbg!(response);
+        panic!();
     }
 }

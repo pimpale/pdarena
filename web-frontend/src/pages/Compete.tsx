@@ -64,7 +64,7 @@ function InnerCompetePage(props: InnerCompetePageProps) {
         kind={props.kind}
         apiKey={props.apiKey}
         tournamentData={props.tournamentData}
-        postSubmit={ts => navigate(`/tournament_submission?tournamentSubmissionId=${ts.tournamentSubmissionId}`)}
+        postSubmit={ts => navigate(`/tournament_submission?tournamentId=${ts.tournament.tournamentId}&submissionId=${ts.submissionId}`)}
       />
     </DisplayModal>
   </div>

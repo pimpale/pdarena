@@ -2,7 +2,7 @@ import React from 'react';
 
 import { Card, Container, Form, Table } from 'react-bootstrap';
 import DashboardLayout from '../components/DashboardLayout';
-import { Loader, WidgetWrapper, Link, Section, DisplayModal } from '@innexgo/common-react-components';
+import { Loader, WidgetWrapper, Link, Section, DisplayModal, Action } from '@innexgo/common-react-components';
 import ErrorMessage from '../components/ErrorMessage';
 
 import update from 'immutability-helper';
@@ -23,6 +23,7 @@ import { a11yDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import ArchiveTournamentSubmission from '../components/ArchiveTournamentSubmission';
 import EditTournamentSubmission from '../components/EditTournamentSubmission';
 
+import { Pencil as EditIcon, X as DeleteIcon, } from 'react-bootstrap-icons';
 
 type ManageTournamentSubmissionPageData = {
   tournamentData: TournamentData,
@@ -34,7 +35,7 @@ const loadManageTournamentSubmissionPage = async (props: AsyncProps<ManageTourna
   const tournamentSubmission = await tournamentSubmissionView({
     tournamentId: [props.tournamentId],
     submissionId: [props.submissionId],
-    onlyRecent: false,
+    onlyRecent: true,
     apiKey: props.apiKey.key
   })
     .then(unwrap)
@@ -104,7 +105,20 @@ function ManageTournamentSubmissionPage(props: AuthenticatedComponentProps) {
                     style={a11yDark}
                     children={data.submission.code} />
                 }
-                <div>
+                <div className="m-3">
+                  <Action
+                    title="Edit"
+                    icon={EditIcon}
+                    onClick={() => setShowEditTournamentSubmissionModal(true)}
+                  />
+                  {data.tournamentSubmission.kind === "CANCEL" ? null :
+                    <Action
+                      title="Delete"
+                      icon={DeleteIcon}
+                      variant="danger"
+                      onClick={() => setShowCancelTournamentSubmissionModal(true)}
+                    />
+                  }
                 </div>
                 <DisplayModal
                   title="Edit Tournament Submission"
@@ -113,7 +127,10 @@ function ManageTournamentSubmissionPage(props: AuthenticatedComponentProps) {
                 >
                   <EditTournamentSubmission
                     tournamentSubmission={data.tournamentSubmission}
-                    setTournamentSubmission={ts => setData(update(data, { tournamentSubmission: { $set: ts } }))}
+                    setTournamentSubmission={ts => {
+                      setData(update(data, { tournamentSubmission: { $set: ts } }));
+                      setShowEditTournamentSubmissionModal(false);
+                    }}
                     apiKey={props.apiKey}
                   />
                 </DisplayModal>
@@ -124,7 +141,10 @@ function ManageTournamentSubmissionPage(props: AuthenticatedComponentProps) {
                 >
                   <ArchiveTournamentSubmission
                     tournamentSubmission={data.tournamentSubmission}
-                    setTournamentSubmission={ts => setData(update(data, { tournamentSubmission: { $set: ts } }))}
+                    setTournamentSubmission={ts => {
+                      setData(update(data, { tournamentSubmission: { $set: ts } }))
+                      setShowCancelTournamentSubmissionModal(false);
+                    }}
                     apiKey={props.apiKey}
                   />
                 </DisplayModal>

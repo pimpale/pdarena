@@ -23,7 +23,7 @@ type ManageTournamentPageData = {
 
 const loadManageTournamentPage = async (props: AsyncProps<ManageTournamentPageData>): Promise<ManageTournamentPageData> => {
   const tournamentSubmissions = await tournamentSubmissionView({
-    submissionId: [props.tournamentId],
+    tournamentId: [props.tournamentId],
     onlyRecent: true,
     apiKey: props.apiKey.key
   })

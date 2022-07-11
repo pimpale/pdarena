@@ -204,7 +204,10 @@ pub async fn do_match(
     let mut submission_defection_history = vec![];
     let mut opponent_submission_defection_history = vec![];
 
+    print!("BATTLE {} vs {}", submission.submission_id, opponent_submission.submission_id);
+
     for round in 0..30 {
+        print!("YEEEEET {}", round);
         let submission_match_resolution = execute_match(
             db.clone(),
             &submission,
