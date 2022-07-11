@@ -6,7 +6,6 @@ use super::Db;
 use auth_service_api::client::AuthService;
 use auth_service_api::response::AuthError;
 use auth_service_api::response::User;
-use tokio_postgres::GenericClient;
 
 use super::request;
 use super::response;
@@ -195,118 +194,52 @@ pub async fn submission_new(
     fill_submission(con, submission).await
 }
 
-
 // uses Judge0 to do a match between two submissions
-//
 pub async fn do_match(
-    con: &mut impl GenericClient,
+    db: Db,
     judge0_service: Judge0Service,
-    submission_id: i64,
-    opponent_submission_id: i64,
-    judge0_callback_url: &str,
-) -> Result<(), response::AppError> {
-    // get biggest working match number
-    let last_successful_match_round = match_resolution_service::get_last_successful_match_round(
-        con,
-        submission_id,
-        opponent_submission_id,
-    )
-    .await
-    .map_err(report_postgres_err)?;
+    submission: Submission,
+    opponent_submission: Submission,
+) {
+    let mut submission_defection_history = vec![];
+    let mut opponent_submission_defection_history = vec![];
 
-    // Three states we could be in:
-    // last_successful_match_round is None -> implies we are starting out, need to progress to next round
-    // only sub_v_opp exists -> implies we are waiting for other one to complete
-    // only opp_v_sub exists -> implies we are waiting for other one to complete
-    // both opp_v_sub and sub_v_opp exist -> need to progress to next round
-
-    if let Some(round) = last_successful_match_round {
-        let sub_v_opp = match_resolution_service::get_recent_valid_by_submission_round(
-            con,
-            submission_id,
-            opponent_submission_id,
+    for round in 0..30 {
+        let submission_match_resolution = execute_match(
+            db.clone(),
+            &submission,
+            &opponent_submission,
             round,
+            &opponent_submission_defection_history,
+            &judge0_service,
         )
         .await
-        .map_err(report_postgres_err)?;
+        .unwrap();
 
-        let opp_v_sub = match_resolution_service::get_recent_valid_by_submission_round(
-            con,
-            opponent_submission_id,
-            submission_id,
+        let opponent_submission_match_resolution = execute_match(
+            db.clone(),
+            &opponent_submission,
+            &submission,
             round,
+            &submission_defection_history,
+            &judge0_service,
         )
         .await
-        .map_err(report_postgres_err)?;
+        .unwrap();
 
-        let should_wait = match (sub_v_opp, opp_v_sub) {
-            (Some(_), None) => true,
-            (None, Some(_)) => true,
-            _ => false,
-        };
-
-        if should_wait {
-            return Ok(());
-        }
+        submission_defection_history.push(submission_match_resolution.defected);
+        opponent_submission_defection_history.push(opponent_submission_match_resolution.defected);
     }
-
-    let next_round = last_successful_match_round.map_or(0, |x| x + 1);
-
-    // if this is the last round do nothing
-    if next_round > 30 {
-        return Ok(());
-    }
-
-    send_match(
-        con,
-        submission_id,
-        opponent_submission_id,
-        next_round,
-        judge0_callback_url,
-        &judge0_service,
-    )
-    .await?;
-    send_match(
-        con,
-        opponent_submission_id,
-        submission_id,
-        next_round,
-        judge0_callback_url,
-        &judge0_service,
-    )
-    .await?;
-    return Ok(());
 }
 
-async fn send_match(
-    con: &mut impl GenericClient,
-    submission_id: i64,
-    opponent_submission_id: i64,
+async fn execute_match(
+    db: Db,
+    submission: &Submission,
+    opponent_submission: &Submission,
     round: i64,
-    judge0_callback_url: &str,
+    opponent_defection_history: &Vec<Option<bool>>,
     judge0_service: &Judge0Service,
-) -> Result<(), response::AppError> {
-    // get code for submission and opponent submission
-    let submission = submission_service::get_by_submission_id(con, submission_id)
-        .await
-        .map_err(report_postgres_err)?
-        .ok_or(AppError::SubmissionNonexistent)?;
-
-    let opponent_submission = submission_service::get_by_submission_id(con, opponent_submission_id)
-        .await
-        .map_err(report_postgres_err)?
-        .ok_or(AppError::SubmissionNonexistent)?;
-
-    // get opponent's history
-    let opponent_defection_history = match_resolution_service::get_defection_history(
-        con,
-        opponent_submission_id,
-        submission_id,
-        round,
-    )
-    .await
-    .map_err(report_postgres_err)?;
-
+) -> Result<MatchResolution, AppError> {
     let opponent_defection_history_str = opponent_defection_history
         .into_iter()
         .map(|x| match x {
@@ -316,19 +249,6 @@ async fn send_match(
         })
         .collect::<Vec<&str>>()
         .join(",");
-
-    // create a match resolution in the case that the judge0 callback fails
-    match_resolution_service::add(
-        con,
-        submission_id,
-        opponent_submission_id,
-        round,
-        None,
-        String::new(),
-        String::from("Judge0 Failed"),
-    )
-    .await
-    .map_err(report_postgres_err)?;
 
     // create random names for submission and opponent submission
     let submission_file_name = format!("mod_{}", utils::random_string());
@@ -341,8 +261,8 @@ async fn send_match(
             "opp_defection_history = [{}]",
             opponent_defection_history_str
         ),
-        String::from("result = Sub.should_defect(Opp.should_defect, opp_defection_history)"),
-        String::from("exit(5000 if result else 5001)"),
+        String::from("defected = Sub.should_defect(Opp.should_defect, opp_defection_history)"),
+        format!("exit(100 if defected else 101)"),
     ]
     .join("\n");
 
@@ -351,20 +271,41 @@ async fn send_match(
     let map = [
         (String::from("run"), run_code),
         (String::from("harness.py"), harness_code),
-        (format!("{}.py", submission_file_name), submission.code),
+        (
+            format!("{}.py", submission_file_name),
+            submission.code.clone(),
+        ),
         (
             format!("{}.py", opponent_submission_file_name),
-            opponent_submission.code,
+            opponent_submission.code.clone(),
         ),
     ]
     .into_iter()
     .collect();
 
-    let resp = judge0_service
-        .send_multifile_submission(map)
-        .await?;
-    dbg!(resp);
-    Ok(())
+    let resp = judge0_service.send_multifile_submission(map).await?;
+
+    let defected = match resp.exit_code {
+        100 => Some(true),
+        101 => Some(false),
+        _ => None,
+    };
+
+    // create a match resolution in the case that the judge0 callback fails
+    let con = &mut *db.lock().await;
+    let match_resolution = match_resolution_service::add(
+        con,
+        submission.submission_id,
+        opponent_submission.submission_id,
+        round,
+        defected,
+        resp.stdout,
+        resp.stderr,
+    )
+    .await
+    .map_err(report_postgres_err)?;
+
+    Ok(match_resolution)
 }
 
 pub async fn tournament_new(
@@ -499,13 +440,18 @@ pub async fn tournament_submission_new(
             .await
             .map_err(report_postgres_err)?
             {
-                do_match(
-                    &mut sp,
+                let opponent_submission =
+                    submission_service::get_by_submission_id(&mut sp, testcase.submission_id)
+                        .await
+                        .map_err(report_postgres_err)?
+                        .ok_or(AppError::SubmissionNonexistent)?;
+
+                tokio::task::spawn(do_match(
+                    db.clone(),
                     judge0_service.clone(),
-                    submission.submission_id,
-                    testcase.submission_id,
-                )
-                .await?;
+                    submission.clone(),
+                    opponent_submission,
+                ));
             }
         }
         request::TournamentSubmissionKind::Compete => {
@@ -571,13 +517,18 @@ pub async fn tournament_submission_new(
             .await
             .map_err(report_postgres_err)?
             {
-                do_match(
-                    &mut sp,
+                let opponent_submission =
+                    submission_service::get_by_submission_id(&mut sp, opponent.submission_id)
+                        .await
+                        .map_err(report_postgres_err)?
+                        .ok_or(AppError::SubmissionNonexistent)?;
+
+                tokio::task::spawn(do_match(
+                    db.clone(),
                     judge0_service.clone(),
-                    submission.submission_id,
-                    opponent.submission_id,
-                )
-                .await?;
+                    submission.clone(),
+                    opponent_submission,
+                ));
             }
         }
         request::TournamentSubmissionKind::Testcase => {
@@ -590,13 +541,18 @@ pub async fn tournament_submission_new(
             .await
             .map_err(report_postgres_err)?
             {
-                do_match(
-                    &mut sp,
+                let opponent_submission =
+                    submission_service::get_by_submission_id(&mut sp, opponent.submission_id)
+                        .await
+                        .map_err(report_postgres_err)?
+                        .ok_or(AppError::SubmissionNonexistent)?;
+
+                tokio::task::spawn(do_match(
+                    db.clone(),
                     judge0_service.clone(),
-                    opponent.submission_id,
-                    submission.submission_id,
-                )
-                .await?;
+                    opponent_submission,
+                    submission.clone(),
+                ));
             }
         }
         request::TournamentSubmissionKind::Cancel => {
@@ -653,7 +609,7 @@ pub async fn submission_view(
 pub async fn tournament_data_view(
     _config: Config,
     db: Db,
-    auth_service: AuthService,
+    _auth_service: AuthService,
     _judge0_service: Judge0Service,
     props: request::TournamentDataViewProps,
 ) -> Result<Vec<response::TournamentData>, response::AppError> {
@@ -675,7 +631,7 @@ pub async fn tournament_data_view(
 pub async fn tournament_submission_view(
     _config: Config,
     db: Db,
-    auth_service: AuthService,
+    _auth_service: AuthService,
     _judge0_service: Judge0Service,
     props: request::TournamentSubmissionViewProps,
 ) -> Result<Vec<response::TournamentSubmission>, response::AppError> {
@@ -697,7 +653,7 @@ pub async fn tournament_submission_view(
 pub async fn match_resolution_view(
     _config: Config,
     db: Db,
-    auth_service: AuthService,
+    _auth_service: AuthService,
     _judge0_service: Judge0Service,
     props: request::MatchResolutionViewProps,
 ) -> Result<Vec<response::MatchResolution>, response::AppError> {
