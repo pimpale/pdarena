@@ -1,5 +1,4 @@
 use clap::Parser;
-use judge0::Judge0Service;
 use std::error::Error;
 use std::sync::Arc;
 use tokio_postgres::{Client, NoTls};
@@ -12,7 +11,7 @@ mod utils;
 use auth_service_api::client::AuthService;
 
 // judge0
-mod judge0;
+mod run_code;
 
 // response and request
 mod request;
@@ -40,7 +39,7 @@ struct Opts {
     #[clap(short, long)]
     auth_service_url: String,
     #[clap(short, long)]
-    judge0_service_url: String,
+    pythonbox_service_url: String,
     #[clap(short, long)]
     port: u16,
 }
@@ -58,7 +57,7 @@ async fn main() {
         database_url,
         site_external_url,
         auth_service_url,
-        judge0_service_url,
+        pythonbox_service_url,
         port,
     } = Opts::parse();
 
@@ -90,7 +89,7 @@ async fn main() {
     let auth_service = AuthService::new(&auth_service_url).await;
 
     // open connection to judge0 service
-    let judge0_service = Judge0Service::new(&judge0_service_url).await;
+    let run_code_service = run_code::RunCodeService::new(&pythonbox_service_url).await;
 
     let log = warp::log::custom(|info| {
         // Use a log macro, or slog, or println, or whatever!
@@ -107,7 +106,7 @@ async fn main() {
         },
         db,
         auth_service,
-        judge0_service,
+        run_code_service,
     );
 
     warp::serve(api.with(log)).run(([0, 0, 0, 0], port)).await;

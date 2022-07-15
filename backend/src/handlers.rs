@@ -1,4 +1,4 @@
-use crate::judge0::Judge0Service;
+use crate::run_code::RunCodeService;
 use crate::request::TournamentSubmissionKind;
 use crate::response::AppError;
 
@@ -168,7 +168,7 @@ pub async fn submission_new(
     _config: Config,
     db: Db,
     auth_service: AuthService,
-    _judge0_service: Judge0Service,
+    _run_code_service: RunCodeService,
     props: request::SubmissionNewProps,
 ) -> Result<response::Submission, response::AppError> {
     // validate api key
@@ -194,10 +194,10 @@ pub async fn submission_new(
     fill_submission(con, submission).await
 }
 
-// uses Judge0 to do a match between two submissions
+// uses RunCode to do a match between two submissions
 pub async fn do_match(
     db: Db,
-    judge0_service: Judge0Service,
+    run_code_service: RunCodeService,
     submission: Submission,
     opponent_submission: Submission,
 ) {
@@ -214,7 +214,7 @@ pub async fn do_match(
             &opponent_submission,
             round,
             &opponent_submission_defection_history,
-            &judge0_service,
+            &run_code_service,
         )
         .await
         .unwrap();
@@ -225,7 +225,7 @@ pub async fn do_match(
             &submission,
             round,
             &submission_defection_history,
-            &judge0_service,
+            &run_code_service,
         )
         .await
         .unwrap();
@@ -241,7 +241,7 @@ async fn execute_match(
     opponent_submission: &Submission,
     round: i64,
     opponent_defection_history: &Vec<Option<bool>>,
-    judge0_service: &Judge0Service,
+    run_code_service: &RunCodeService,
 ) -> Result<MatchResolution, AppError> {
     let opponent_defection_history_str = opponent_defection_history
         .into_iter()
@@ -257,7 +257,8 @@ async fn execute_match(
     let submission_file_name = format!("mod_{}", utils::random_string());
     let opponent_submission_file_name = format!("mod_{}", utils::random_string());
 
-    let harness_code = [
+    let run_code = [
+        String::from("#!/bin/python3"),
         format!("import {} as Sub", submission_file_name),
         format!("import {} as Opp", opponent_submission_file_name),
         format!(
@@ -269,11 +270,8 @@ async fn execute_match(
     ]
     .join("\n");
 
-    let run_code = ["#!/bin/bash", "exec python3 harness.py"].join("\n");
-
     let map = [
         (String::from("run"), run_code),
-        (String::from("harness.py"), harness_code),
         (
             format!("{}.py", submission_file_name),
             submission.code.clone(),
@@ -286,7 +284,7 @@ async fn execute_match(
     .into_iter()
     .collect();
 
-    let resp = judge0_service.send_multifile_submission(map).await?;
+    let resp = run_code_service.send_multifile_submission(map).await?;
 
     let defected = match resp.exit_code {
         100 => Some(true),
@@ -294,7 +292,7 @@ async fn execute_match(
         _ => None,
     };
 
-    // create a match resolution in the case that the judge0 callback fails
+    // create a match resolution in the case that the run_code callback fails
     let con = &mut *db.lock().await;
     let match_resolution = match_resolution_service::add(
         con,
@@ -315,7 +313,7 @@ pub async fn tournament_new(
     _config: Config,
     db: Db,
     auth_service: AuthService,
-    _judge0_service: Judge0Service,
+    _run_code_service: RunCodeService,
     props: request::TournamentNewProps,
 ) -> Result<response::TournamentData, response::AppError> {
     // validate api key
@@ -352,7 +350,7 @@ pub async fn tournament_data_new(
     _config: Config,
     db: Db,
     auth_service: AuthService,
-    _judge0_service: Judge0Service,
+    _run_code_service: RunCodeService,
     props: request::TournamentDataNewProps,
 ) -> Result<response::TournamentData, response::AppError> {
     // validate api key
@@ -394,7 +392,7 @@ pub async fn tournament_submission_new(
     _config: Config,
     db: Db,
     auth_service: AuthService,
-    judge0_service: Judge0Service,
+    run_code_service: RunCodeService,
     props: request::TournamentSubmissionNewProps,
 ) -> Result<response::TournamentSubmission, response::AppError> {
     // validate api key
@@ -451,7 +449,7 @@ pub async fn tournament_submission_new(
 
                 tokio::task::spawn(do_match(
                     db.clone(),
-                    judge0_service.clone(),
+                    run_code_service.clone(),
                     submission.clone(),
                     opponent_submission,
                 ));
@@ -528,7 +526,7 @@ pub async fn tournament_submission_new(
 
                 tokio::task::spawn(do_match(
                     db.clone(),
-                    judge0_service.clone(),
+                    run_code_service.clone(),
                     submission.clone(),
                     opponent_submission,
                 ));
@@ -552,7 +550,7 @@ pub async fn tournament_submission_new(
 
                 tokio::task::spawn(do_match(
                     db.clone(),
-                    judge0_service.clone(),
+                    run_code_service.clone(),
                     opponent_submission,
                     submission.clone(),
                 ));
@@ -585,7 +583,7 @@ pub async fn submission_view(
     _config: Config,
     db: Db,
     auth_service: AuthService,
-    _judge0_service: Judge0Service,
+    _run_code_service: RunCodeService,
     props: request::SubmissionViewProps,
 ) -> Result<Vec<response::Submission>, response::AppError> {
     // validate api key
@@ -613,7 +611,7 @@ pub async fn tournament_data_view(
     _config: Config,
     db: Db,
     _auth_service: AuthService,
-    _judge0_service: Judge0Service,
+    _run_code_service: RunCodeService,
     props: request::TournamentDataViewProps,
 ) -> Result<Vec<response::TournamentData>, response::AppError> {
     let con = &mut *db.lock().await;
@@ -635,7 +633,7 @@ pub async fn tournament_submission_view(
     _config: Config,
     db: Db,
     _auth_service: AuthService,
-    _judge0_service: Judge0Service,
+    _run_code_service: RunCodeService,
     props: request::TournamentSubmissionViewProps,
 ) -> Result<Vec<response::TournamentSubmission>, response::AppError> {
     let con = &mut *db.lock().await;
@@ -657,7 +655,7 @@ pub async fn match_resolution_view(
     _config: Config,
     db: Db,
     _auth_service: AuthService,
-    _judge0_service: Judge0Service,
+    _run_code_service: RunCodeService,
     props: request::MatchResolutionViewProps,
 ) -> Result<Vec<response::MatchResolution>, response::AppError> {
     let con = &mut *db.lock().await;
