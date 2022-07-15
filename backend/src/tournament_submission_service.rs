@@ -1,7 +1,6 @@
 use crate::request::TournamentSubmissionKind;
 
 use super::db_types::*;
-use super::utils::current_time_millis;
 use std::convert::From;
 use tokio_postgres::GenericClient;
 
@@ -29,8 +28,6 @@ pub async fn add(
     name: String,
     kind: TournamentSubmissionKind,
 ) -> Result<TournamentSubmission, tokio_postgres::Error> {
-    let creation_time = current_time_millis();
-
     let row = con
         .query_one(
             "INSERT INTO
@@ -68,23 +65,25 @@ pub async fn add(
 pub async fn get_recent_by_kind(
     con: &mut impl GenericClient,
     tournament_id: i64,
-    kind: TournamentSubmissionKind,
+    kind: &[TournamentSubmissionKind],
 ) -> Result<Vec<TournamentSubmission>, tokio_postgres::Error> {
     let sql = [
         "SELECT ts.* FROM recent_tournament_submission ts",
         " WHERE 1 = 1",
         " AND ts.tournament_id = $1",
-        " AND ts.kind = $2",
+        " AND ts.kind = ANY($2)",
         " ORDER BY ts.tournament_submission_id",
     ]
     .join("\n");
 
     let stmnt = con.prepare(&sql).await?;
 
+    let kinds = kind.iter().map(|x| x.clone() as i64).collect::<Vec<i64>>();
+
     let results = con
         .query(
             &stmnt,
-            &[&tournament_id, &(kind as i64)],
+            &[&tournament_id, &kinds],
         )
         .await?
         .into_iter()

@@ -183,7 +183,6 @@ export type MatchResolutionViewProps = {
   minCreationTime?: number,
   maxCreationTime?: number,
   matchResolutionId?: number[],
-  creatorUserId?: number[],
   submissionId?: number[],
   opponentSubmissionId?: number[],
   round?: number[],

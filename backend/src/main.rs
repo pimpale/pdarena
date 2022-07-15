@@ -32,15 +32,15 @@ static SERVICE_NAME: &str = "pdarena-service";
 
 #[derive(Parser, Clone)]
 struct Opts {
-    #[clap(short, long)]
+    #[clap(long)]
     site_external_url: String,
-    #[clap(short, long)]
+    #[clap(long)]
     database_url: String,
-    #[clap(short, long)]
+    #[clap(long)]
     auth_service_url: String,
-    #[clap(short, long)]
+    #[clap(long)]
     pythonbox_service_url: String,
-    #[clap(short, long)]
+    #[clap(long)]
     port: u16,
 }
 

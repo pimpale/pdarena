@@ -1,6 +1,6 @@
-use crate::run_code::RunCodeService;
 use crate::request::TournamentSubmissionKind;
 use crate::response::AppError;
+use crate::run_code::RunCodeService;
 
 use super::Db;
 use auth_service_api::client::AuthService;
@@ -32,7 +32,7 @@ pub fn report_postgres_err(e: tokio_postgres::Error) -> response::AppError {
     response::AppError::InternalServerError
 }
 
-pub fn report_zip_err(e: zip::result::ZipError) -> response::AppError {
+pub fn report_io_err(e: std::io::Error) -> response::AppError {
     utils::log(utils::Event {
         msg: e.to_string(),
         source: e.source().map(|e| e.to_string()),
@@ -41,7 +41,7 @@ pub fn report_zip_err(e: zip::result::ZipError) -> response::AppError {
     response::AppError::InternalServerError
 }
 
-pub fn report_io_err(e: std::io::Error) -> response::AppError {
+pub fn report_base64_err(e: base64::DecodeError) -> response::AppError {
     utils::log(utils::Event {
         msg: e.to_string(),
         source: e.source().map(|e| e.to_string()),
@@ -204,10 +204,13 @@ pub async fn do_match(
     let mut submission_defection_history = vec![];
     let mut opponent_submission_defection_history = vec![];
 
-    print!("BATTLE {} vs {}", submission.submission_id, opponent_submission.submission_id);
+    println!(
+        "BATTLE {} vs {}",
+        submission.submission_id, opponent_submission.submission_id
+    );
 
     for round in 0..30 {
-        print!("YEEEEET {}", round);
+        println!("YEEEEET {}", round);
         let submission_match_resolution = execute_match(
             db.clone(),
             &submission,
@@ -258,7 +261,7 @@ async fn execute_match(
     let opponent_submission_file_name = format!("mod_{}", utils::random_string());
 
     let run_code = [
-        String::from("#!/bin/python3"),
+        String::from("#!/usr/bin/python3"),
         format!("import {} as Sub", submission_file_name),
         format!("import {} as Opp", opponent_submission_file_name),
         format!(
@@ -287,8 +290,8 @@ async fn execute_match(
     let resp = run_code_service.send_multifile_submission(map).await?;
 
     let defected = match resp.exit_code {
-        100 => Some(true),
-        101 => Some(false),
+        Some(100) => Some(true),
+        Some(101) => Some(false),
         _ => None,
     };
 
@@ -436,7 +439,7 @@ pub async fn tournament_submission_new(
             for testcase in tournament_submission_service::get_recent_by_kind(
                 &mut sp,
                 props.tournament_id,
-                request::TournamentSubmissionKind::Testcase,
+                &[request::TournamentSubmissionKind::Testcase],
             )
             .await
             .map_err(report_postgres_err)?
@@ -475,7 +478,7 @@ pub async fn tournament_submission_new(
             for testcase in tournament_submission_service::get_recent_by_kind(
                 &mut sp,
                 props.tournament_id,
-                request::TournamentSubmissionKind::Testcase,
+                &[request::TournamentSubmissionKind::Testcase],
             )
             .await
             .map_err(report_postgres_err)?
@@ -513,7 +516,7 @@ pub async fn tournament_submission_new(
             for opponent in tournament_submission_service::get_recent_by_kind(
                 &mut sp,
                 props.tournament_id,
-                request::TournamentSubmissionKind::Compete,
+                &[request::TournamentSubmissionKind::Compete],
             )
             .await
             .map_err(report_postgres_err)?
@@ -533,11 +536,14 @@ pub async fn tournament_submission_new(
             }
         }
         request::TournamentSubmissionKind::Testcase => {
-            // then do match for all competition entries
+            // then do match for all validation and competition entries
             for opponent in tournament_submission_service::get_recent_by_kind(
                 &mut sp,
                 props.tournament_id,
-                request::TournamentSubmissionKind::Compete,
+                &[
+                    request::TournamentSubmissionKind::Validate,
+                    request::TournamentSubmissionKind::Compete,
+                ],
             )
             .await
             .map_err(report_postgres_err)?

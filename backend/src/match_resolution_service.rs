@@ -1,5 +1,4 @@
 use super::db_types::*;
-use super::utils::current_time_millis;
 use std::convert::From;
 use tokio_postgres::GenericClient;
 
@@ -28,8 +27,6 @@ pub async fn add(
     stdout: String,
     stderr: String,
 ) -> Result<MatchResolution, tokio_postgres::Error> {
-    let creation_time = current_time_millis();
-
     let row = con
         .query_one(
             "INSERT INTO
@@ -42,7 +39,7 @@ pub async fn add(
                  stderr
              )
              VALUES ($1, $2, $3, $4, $5, $6)
-             RETURNING match_submission_id, creation_time
+             RETURNING match_resolution_id, creation_time
             ",
             &[
                 &submission_id,
@@ -178,11 +175,11 @@ pub async fn query(
     props: super::request::MatchResolutionViewProps,
 ) -> Result<Vec<MatchResolution>, tokio_postgres::Error> {
     let sql = [
-        "SELECT mr.* FROM match_resolution mr",
+        "SELECT mr.* FROM recent_match_resolution mr",
         "WHERE 1 = 1",
         "AND ($1::bigint   IS NULL OR mr.creation_time >= $1)",
         "AND ($2::bigint   IS NULL OR mr.creation_time <= $2)",
-        "AND ($3::bigint[] IS NULL OR mr.matchup_resolution_id = ANY($3))",
+        "AND ($3::bigint[] IS NULL OR mr.match_resolution_id = ANY($3))",
         "AND ($4::bigint[] IS NULL OR mr.submission_id = ANY($4))",
         "AND ($5::bigint[] IS NULL OR mr.opponent_submission_id = ANY($5))",
         "AND ($6::bigint[] IS NULL OR mr.round = ANY($6))",
