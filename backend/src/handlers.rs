@@ -19,6 +19,8 @@ use super::tournament_data_service;
 use super::tournament_service;
 use super::tournament_submission_service;
 
+const N_ROUNDS: i64= 30;
+
 use std::error::Error;
 
 use super::Config;
@@ -209,7 +211,7 @@ pub async fn do_match(
         submission.submission_id, opponent_submission.submission_id
     );
 
-    for round in 0..30 {
+    for round in 0..N_ROUNDS {
         println!("YEEEEET {}", round);
         let submission_match_resolution = execute_match(
             db.clone(),
@@ -504,6 +506,11 @@ pub async fn tournament_submission_new(
                     .await
                     .map_err(report_postgres_err)?,
                 );
+
+                // ensure that there are at least tournament_data
+                if testcase_results.len() < (N_ROUNDS*2) as usize {
+                        return Err(AppError::TournamentSubmissionTestcaseIncomplete);
+                }
 
                 for result in testcase_results {
                     if result.defected.is_none() {

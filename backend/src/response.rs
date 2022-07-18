@@ -11,6 +11,7 @@ pub enum AppError {
     TournamentNonexistent,
     SubmissionTooLong,
     TournamentSubmissionNotValidated,
+    TournamentSubmissionTestcaseIncomplete,
     TournamentSubmissionTestcaseFails,
     TournamentArchived,
     DecodeError,

@@ -12,7 +12,7 @@ import { unwrap, getFirstOr } from '@innexgo/frontend-common';
 import format from "date-fns/format";
 
 import { Async, AsyncProps } from 'react-async';
-import { MatchResolution, matchResolutionView, Submission, submissionView, TournamentData, tournamentDataView, TournamentSubmission, tournamentSubmissionView } from '../utils/api';
+import { MatchResolution, matchResolutionView, Submission, submissionView, TournamentData, tournamentDataView, TournamentSubmission, TournamentSubmissionKind, tournamentSubmissionView } from '../utils/api';
 import { ApiKey } from '@innexgo/frontend-auth-api';
 import { AuthenticatedComponentProps } from '@innexgo/auth-react-components';
 
@@ -21,10 +21,12 @@ import { Prism as SyntaxHighligher } from 'react-syntax-highlighter';
 import { a11yDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 import ArchiveTournamentSubmission from '../components/ArchiveTournamentSubmission';
+import SubmitTournamentSubmission from '../components/SubmitTournamentSubmission';
 import EditTournamentSubmission from '../components/EditTournamentSubmission';
 
-import { Pencil as EditIcon, X as DeleteIcon, } from 'react-bootstrap-icons';
-import { score } from '../utils/scoring';
+import { Pencil as EditIcon, X as DeleteIcon, Eye as ViewIcon, Mailbox as SubmitIcon } from 'react-bootstrap-icons';
+
+import { ROUNDS, score } from '../utils/scoring';
 
 type ManageTournamentSubmissionPageData = {
   tournamentData: TournamentData,
@@ -230,12 +232,17 @@ function ShowMatchupTable(props: ShowVerifyProgressProps) {
           <b>{entry.ts.kind}</b>
         </td>
         <td>
-          <p>{isNaN(entry.score)
-            ? "N/A"
-            : entry.score.toFixed(3)
-          }</p>
+          <p>
+            ({entry.ms.length}/{ROUNDS})
+            Avg: {isNaN(entry.score)
+              ? "N/A"
+              : entry.score.toFixed(3)
+            }</p>
           <p>{entry.disqualified
-            ? <b className="text-danger">MATCH DISQUALIFIED</b>
+            ? <>
+              <b className="text-danger">MATCH DISQUALIFIED</b>
+              <p>(one or more matches failed)</p>
+            </>
             : <b className="text-success">MATCH VALID</b>
           }</p>
         </td>
@@ -248,6 +255,7 @@ function ShowMatchupTable(props: ShowVerifyProgressProps) {
                   <th>Submission Choice?</th>
                   <th>Opponent Choice?</th>
                   <th>Score</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -266,8 +274,13 @@ function ShowMatchupTable(props: ShowVerifyProgressProps) {
                         ? "Defected"
                         : "Cooperated"
                     }</td>
+                    <td>{m_score}</td>
                     <td>
-                      {m_score}
+                      <Link
+                        title="View"
+                        icon={ViewIcon}
+                        href={`/match_resolution?submissionId=${m1.submissionId}&opponentSubmissionId=${m1.opponentSubmissionId}&round=${m1.round}`}
+                      />
                     </td>
                   </tr>
                 )}
@@ -286,6 +299,13 @@ function ManageTournamentSubmissionPage(props: AuthenticatedComponentProps) {
 
   const [showEditTournamentSubmissionModal, setShowEditTournamentSubmissionModal] = React.useState(false);
   const [showCancelTournamentSubmissionModal, setShowCancelTournamentSubmissionModal] = React.useState(false);
+  const [showSubmitTournamentSubmissionModal, setShowSubmitTournamentSubmissionModal] = React.useState(false);
+
+  const key = new Map<TournamentSubmissionKind, string>();
+  key.set("VALIDATE", "text-success");
+  key.set("COMPETE", "text-primary");
+  key.set("CANCEL", "text-secondary");
+  key.set("TESTCASE", "text-success");
 
   return (
     <DashboardLayout {...props}>
@@ -296,6 +316,7 @@ function ManageTournamentSubmissionPage(props: AuthenticatedComponentProps) {
             <Async.Rejected>{e => <ErrorMessage error={e} />}</Async.Rejected>
             <Async.Fulfilled<ManageTournamentSubmissionPageData>>{data => <>
               <Section name={data.tournamentSubmission.name} id="intro">
+                <h5>Status: <span className={key.get(data.tournamentSubmission.kind)}>{data.tournamentSubmission.kind}</span></h5>
                 {data.submission === undefined
                   ? <HiddenCodeCard className='mx-5 mb-5' />
                   : <SyntaxHighligher
@@ -320,6 +341,17 @@ function ManageTournamentSubmissionPage(props: AuthenticatedComponentProps) {
                     />
                   }
                 </div>
+                <p hidden={data.tournamentSubmission.kind !== "VALIDATE"}>
+                  <b>
+                    NOTE: your submission is still in validation mode.
+                    Once all testcases pass, you must submit it into the tournament.
+                  </b>
+                  <Action
+                    title="Submit"
+                    icon={SubmitIcon}
+                    onClick={() => setShowSubmitTournamentSubmissionModal(true)}
+                  />
+                </p>
                 <DisplayModal
                   title="Edit Tournament Submission"
                   show={showEditTournamentSubmissionModal}
@@ -344,6 +376,20 @@ function ManageTournamentSubmissionPage(props: AuthenticatedComponentProps) {
                     setTournamentSubmission={ts => {
                       setData(update(data, { tournamentSubmission: { $set: ts } }))
                       setShowCancelTournamentSubmissionModal(false);
+                    }}
+                    apiKey={props.apiKey}
+                  />
+                </DisplayModal>
+                <DisplayModal
+                  title="Submit Tournament Submission"
+                  show={showSubmitTournamentSubmissionModal}
+                  onClose={() => setShowSubmitTournamentSubmissionModal(false)}
+                >
+                  <SubmitTournamentSubmission
+                    tournamentSubmission={data.tournamentSubmission}
+                    setTournamentSubmission={ts => {
+                      setData(update(data, { tournamentSubmission: { $set: ts } }))
+                      setShowSubmitTournamentSubmissionModal(false);
                     }}
                     apiKey={props.apiKey}
                   />
