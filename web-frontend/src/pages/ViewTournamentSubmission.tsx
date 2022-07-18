@@ -161,6 +161,9 @@ const ToggleableElement = (props: ToggleableElementProps) => {
 
 
 function ShowMatchupTable(props: ShowVerifyProgressProps) {
+  const [inspectedMatchs, setInspectedMatchs] = React.useState<[MatchResolution, MatchResolution] | null>(null);
+
+
   // find all matches that have self as submission and testcase submissions as opponents
   const selfSubmissionId = props.tournamentSubmission.submissionId;
 
@@ -243,7 +246,9 @@ function ShowMatchupTable(props: ShowVerifyProgressProps) {
               <b className="text-danger">MATCH DISQUALIFIED</b>
               <p>(one or more matches failed)</p>
             </>
-            : <b className="text-success">MATCH VALID</b>
+            : entry.ms.length < ROUNDS
+              ? <b className="text-secondary">MATCH IN PROGRESS</b>
+              : <b className="text-success">MATCH VALID</b>
           }</p>
         </td>
         <td>
@@ -276,10 +281,10 @@ function ShowMatchupTable(props: ShowVerifyProgressProps) {
                     }</td>
                     <td>{m_score}</td>
                     <td>
-                      <Link
+                      <Action
                         title="View"
                         icon={ViewIcon}
-                        href={`/match_resolution?submissionId=${m1.submissionId}&opponentSubmissionId=${m1.opponentSubmissionId}&round=${m1.round}`}
+                        onClick={() => setInspectedMatchs([m1, m2])}
                       />
                     </td>
                   </tr>
@@ -290,6 +295,45 @@ function ShowMatchupTable(props: ShowVerifyProgressProps) {
         </td>
       </tr>
     )}</tbody>
+    <DisplayModal
+      title="View Match Logs"
+      show={inspectedMatchs !== null}
+      onClose={() => setInspectedMatchs(null)}
+    >
+      {inspectedMatchs === null
+        ? null
+        : <div>
+          <h6>Submission Stdout</h6>
+          <div style={{ width: "100%", overflow: "scroll" }}>
+            <SyntaxHighligher
+              showLineNumbers
+              style={a11yDark}
+              children={inspectedMatchs[0].stdout} />
+          </div>
+          <h6>Opponent Stdout</h6>
+          <div style={{ width: "100%", overflow: "scroll" }}>
+          <SyntaxHighligher
+            showLineNumbers
+            style={a11yDark}
+            children={inspectedMatchs[1].stdout} />
+          </div>
+          <h6>Submission Stderr</h6>
+          <div style={{ width: "100%", overflow: "scroll" }}>
+          <SyntaxHighligher
+            showLineNumbers
+            style={a11yDark}
+            children={inspectedMatchs[0].stderr} />
+          </div>
+          <h6>Submission Stderr</h6>
+          <div style={{ width: "100%", overflow: "scroll" }}>
+          <SyntaxHighligher
+            showLineNumbers
+            style={a11yDark}
+            children={inspectedMatchs[1].stderr} />
+          </div>
+        </div>
+      }
+    </DisplayModal>
   </Table>
 }
 
@@ -300,6 +344,7 @@ function ManageTournamentSubmissionPage(props: AuthenticatedComponentProps) {
   const [showEditTournamentSubmissionModal, setShowEditTournamentSubmissionModal] = React.useState(false);
   const [showCancelTournamentSubmissionModal, setShowCancelTournamentSubmissionModal] = React.useState(false);
   const [showSubmitTournamentSubmissionModal, setShowSubmitTournamentSubmissionModal] = React.useState(false);
+
 
   const key = new Map<TournamentSubmissionKind, string>();
   key.set("VALIDATE", "text-success");
