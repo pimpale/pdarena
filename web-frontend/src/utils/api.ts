@@ -45,7 +45,7 @@ export type MatchResolution = {
   submissionId: number,
   opponentSubmissionId: number,
   round: number,
-  defected?: boolean,
+  defected: boolean | null,
   stdout: string,
   stderr: string,
 }

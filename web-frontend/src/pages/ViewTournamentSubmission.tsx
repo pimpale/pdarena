@@ -24,6 +24,7 @@ import ArchiveTournamentSubmission from '../components/ArchiveTournamentSubmissi
 import EditTournamentSubmission from '../components/EditTournamentSubmission';
 
 import { Pencil as EditIcon, X as DeleteIcon, } from 'react-bootstrap-icons';
+import { score } from '../utils/scoring';
 
 type ManageTournamentSubmissionPageData = {
   tournamentData: TournamentData,
@@ -103,6 +104,18 @@ const HiddenCodeCard = (props: HiddenCodeCardProps) =>
   </div>
 
 
+type CrossTableProps = {
+  tournamentSubmission: TournamentSubmission,
+  tournamentSubmissions: TournamentSubmission[]
+  matchesAsSubmission: MatchResolution[]
+  matchesAsOpponent: MatchResolution[]
+}
+
+function CrossTable(props: CrossTableProps) {
+  // uniquely identify all filt
+
+}
+
 type ShowVerifyProgressProps = {
   tournamentSubmission: TournamentSubmission,
   tournamentSubmissions: TournamentSubmission[]
@@ -110,55 +123,102 @@ type ShowVerifyProgressProps = {
   matchesAsOpponent: MatchResolution[]
 }
 
+type Entry = {
+  m1: MatchResolution,
+  m2: MatchResolution,
+  m_score?: number
+}
+
+
+type ToggleableElementProps = {
+  children: React.ReactNode,
+}
+
+const ToggleableElement = (props: ToggleableElementProps) => {
+  const [expanded, setExpanded] = React.useState(false);
+
+  const expandedStyle = {
+  }
+
+  const opacity = 0.0;
+
+  const compressedStyle = {
+    overflow: "hidden" as const,
+    maxHeight: "10rem",
+    mask: `linear-gradient(180deg, black, rgba(255, 255, 255, ${opacity})) center bottom/100% 5rem no-repeat, linear-gradient(180deg, black, black) center top/100% calc(100% - 5rem) no-repeat`
+  }
+
+  return <div className='text-center'>
+    <div style={expanded ? expandedStyle : compressedStyle} >
+      {props.children}
+    </div>
+    <button className='btn btn-primary' onClick={() => setExpanded(!expanded)}>{expanded ? "Hide" : "Show"}</button>
+  </div>
+}
+
+
+
 function ShowMatchupTable(props: ShowVerifyProgressProps) {
   // find all matches that have self as submission and testcase submissions as opponents
   const selfSubmissionId = props.tournamentSubmission.submissionId;
 
   // group by opponent
-  const opponentMap = new Map<number, MatchResolution[]>();
+  const opponentMap1 = new Map<number, MatchResolution[]>();
 
   for (const match of props.matchesAsSubmission) {
-    const result = opponentMap.get(match.opponentSubmissionId);
+    const result = opponentMap1.get(match.opponentSubmissionId);
     if (result === undefined) {
-      opponentMap.set(match.opponentSubmissionId, [match]);
+      opponentMap1.set(match.opponentSubmissionId, [match]);
     } else {
       result.push(match);
     }
   }
 
+  const opponentMap2 = new Map<number, MatchResolution[]>();
   for (const match of props.matchesAsOpponent) {
-    const result = opponentMap.get(match.submissionId);
+    const result = opponentMap2.get(match.submissionId);
     if (result === undefined) {
-      opponentMap.set(match.submissionId, [match]);
+      opponentMap2.set(match.submissionId, [match]);
     } else {
       result.push(match);
     }
   }
 
   // for each match-set group into pairs
-  const entries: { ts: TournamentSubmission, ms: [MatchResolution | undefined, MatchResolution | undefined][] }[] = [];
+  const entries: { ts: TournamentSubmission, ms: Entry[], score: number, disqualified: boolean }[] = [];
 
-  for (const [k, v] of opponentMap) {
-    const key = props.tournamentSubmissions.find(x => x.submissionId === k)!;
-    const pairs: [MatchResolution | undefined, MatchResolution | undefined][] = [];
-    for (const m of v) {
-      if (pairs[m.round] === undefined) {
-        pairs[m.round] = [undefined, undefined];
+  for (const k of new Set([...opponentMap1.keys(), ...opponentMap2.keys()])) {
+    const ts = props.tournamentSubmissions.find(x => x.submissionId === k)!;
+
+    const r1 = opponentMap1.get(k);
+    const r2 = opponentMap2.get(k);
+
+    if (r1 && r2) {
+      const ms: Entry[] = [];
+      for (const m1 of r1) {
+        const m2 = r2.find(x => x.round === m1.round);
+        if (m2) {
+          let m_score: number | undefined = undefined;
+          if (m1.defected !== null && m2.defected !== null) {
+            m_score = score(m1.defected, m2.defected);
+          }
+          ms[m1.round] = { m1, m2, m_score };
+        }
       }
-      if (m.submissionId === selfSubmissionId) {
-        pairs[m.round][0] = m;
-      } else {
-        pairs[m.round][1] = m;
-      }
+
+      const scores = ms.filter(({ m_score }) => m_score !== undefined).map(({ m_score }) => m_score || 0);
+
+      const disqualified = ms.some(({ m_score }) => m_score === undefined);
+
+      const scoreV = scores.reduce((a, b) => a + b, 0) / scores.length;
+      entries.push({ ts, ms, score: scoreV, disqualified });
     }
-    entries.push({ ts: key, ms: pairs });
   }
 
   return <Table hover bordered>
     <thead>
       <tr>
         <th>Opponent</th>
-        <th>Status</th>
         <th>Score</th>
         <th>Details</th>
       </tr>
@@ -169,45 +229,56 @@ function ShowMatchupTable(props: ShowVerifyProgressProps) {
           <h5>{entry.ts.name}</h5>
           <b>{entry.ts.kind}</b>
         </td>
-        <td>ok?</td>
-        <td>tbd</td>
         <td>
-          <Table hover bordered>
-            <thead>
-              <tr>
-                <th>Round</th>
-                <th>Submission Choice?</th>
-                <th>Opponent Choice?</th>
-                <th>Score</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>{entry.ms.map(([m1, m2], round) =>
-              <tr>
-                <td>{round}</td>
-                <td>{m1?.defected === undefined
-                  ? "?"
-                  : m1.defected === true
-                    ? "Defected"
-                    : "Cooperated"
-                }</td>
-                <td>{m2?.defected === undefined
-                  ? "?"
-                  : m2.defected === true
-                    ? "Defected"
-                    : "Cooperated"
-                }</td>
-              </tr>
-            )}</tbody>
-          </Table>
+          <p>{isNaN(entry.score)
+            ? "N/A"
+            : entry.score.toFixed(3)
+          }</p>
+          <p>{entry.disqualified
+            ? <b className="text-danger">MATCH DISQUALIFIED</b>
+            : <b className="text-success">MATCH VALID</b>
+          }</p>
+        </td>
+        <td>
+          <ToggleableElement>
+            <Table hover bordered>
+              <thead>
+                <tr>
+                  <th>Round</th>
+                  <th>Submission Choice?</th>
+                  <th>Opponent Choice?</th>
+                  <th>Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                {entry.ms.map(({ m1, m2, m_score }, round) =>
+                  <tr>
+                    <td>{round}</td>
+                    <td>{m1.defected === null
+                      ? "?"
+                      : m1.defected === true
+                        ? "Defected"
+                        : "Cooperated"
+                    }</td>
+                    <td>{m2.defected === null
+                      ? "?"
+                      : m2.defected === true
+                        ? "Defected"
+                        : "Cooperated"
+                    }</td>
+                    <td>
+                      {m_score}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </Table>
+          </ToggleableElement>
         </td>
       </tr>
     )}</tbody>
   </Table>
-
 }
-
-
 
 function ManageTournamentSubmissionPage(props: AuthenticatedComponentProps) {
   const tournamentId = parseInt(new URLSearchParams(window.location.search).get("tournamentId") ?? "");
