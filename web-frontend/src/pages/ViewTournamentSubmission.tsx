@@ -106,18 +106,6 @@ const HiddenCodeCard = (props: HiddenCodeCardProps) =>
   </div>
 
 
-type CrossTableProps = {
-  tournamentSubmission: TournamentSubmission,
-  tournamentSubmissions: TournamentSubmission[]
-  matchesAsSubmission: MatchResolution[]
-  matchesAsOpponent: MatchResolution[]
-}
-
-function CrossTable(props: CrossTableProps) {
-  // uniquely identify all filt
-
-}
-
 type ShowVerifyProgressProps = {
   tournamentSubmission: TournamentSubmission,
   tournamentSubmissions: TournamentSubmission[]

@@ -11,24 +11,19 @@ import { unwrap, getFirstOr } from '@innexgo/frontend-common';
 import format from "date-fns/format";
 
 import { Async, AsyncProps } from 'react-async';
-import { Submission, submissionView, TournamentData, tournamentDataView, TournamentSubmission, tournamentSubmissionView } from '../utils/api';
+import { MatchResolution, matchResolutionView, Submission, submissionView, TournamentData, tournamentDataView, TournamentSubmission, tournamentSubmissionView } from '../utils/api';
 import { ApiKey } from '@innexgo/frontend-auth-api';
 import { AuthenticatedComponentProps } from '@innexgo/auth-react-components';
 import ManageTournamentSubmissionsTournament from '../components/ManageTournamentSubmissionTournament';
+import CrossTable from '../components/CrossTable';
 
 type ManageTournamentPageData = {
   tournamentData: TournamentData,
   tournamentSubmissions: TournamentSubmission[],
+  matches: MatchResolution[],
 }
 
 const loadManageTournamentPage = async (props: AsyncProps<ManageTournamentPageData>): Promise<ManageTournamentPageData> => {
-  const tournamentSubmissions = await tournamentSubmissionView({
-    tournamentId: [props.tournamentId],
-    onlyRecent: true,
-    apiKey: props.apiKey.key
-  })
-    .then(unwrap);
-
   const tournamentData = await tournamentDataView({
     tournamentId: [props.tournamentId],
     onlyRecent: true,
@@ -38,9 +33,33 @@ const loadManageTournamentPage = async (props: AsyncProps<ManageTournamentPageDa
     .then(x => getFirstOr(x, "NOT_FOUND"))
     .then(unwrap);
 
+  const tournamentSubmissions = await tournamentSubmissionView({
+    tournamentId: [props.tournamentId],
+    onlyRecent: true,
+    apiKey: props.apiKey.key
+  })
+    .then(unwrap);
+
+
+  const submissionIds = tournamentSubmissions.map(x => x.submissionId);
+
+  const matchesAsSubmission = await matchResolutionView({
+    submissionId: submissionIds,
+    apiKey: props.apiKey.key
+  })
+    .then(unwrap);
+
+  const matchesAsOpponent = await matchResolutionView({
+    opponentSubmissionId: submissionIds,
+    apiKey: props.apiKey.key
+  })
+    .then(unwrap);
+
+
   return {
     tournamentData,
     tournamentSubmissions,
+    matches: [...matchesAsSubmission, ...matchesAsOpponent]
   };
 }
 
@@ -64,14 +83,21 @@ function ManageTournamentPage(props: AuthenticatedComponentProps) {
                   />
                 </div>
               </Section>
-              <Section name="Leaderboard" id="leaderboard">
-                <div />
+              <Section name="Table" id="table">
+                <b>Note:</b> submissions are on the columns, opponents are on the rows.
+                <div className="text-center p-3" style={{ overflow: "scroll" }}>
+                  <CrossTable
+                    tournamentSubmissions={data.tournamentSubmissions}
+                    matches={data.matches}
+                  />
+                </div>
               </Section>
-              <Section name="Submissions" id="submissions">
+              <Section name="Leaderboard" id="leaderboard">
                 <ManageTournamentSubmissionsTournament
                   tournamentSubmissions={data.tournamentSubmissions}
                   setTournamentSubmissions={tournamentSubmissions => setData(update(data, { tournamentSubmissions: { $set: tournamentSubmissions } }))}
                   apiKey={props.apiKey}
+                    matches={data.matches}
                   showInactive={false}
                   mutable={true}
                 />
