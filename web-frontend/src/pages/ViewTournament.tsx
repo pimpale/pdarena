@@ -97,7 +97,7 @@ function ManageTournamentPage(props: AuthenticatedComponentProps) {
                   tournamentSubmissions={data.tournamentSubmissions}
                   setTournamentSubmissions={tournamentSubmissions => setData(update(data, { tournamentSubmissions: { $set: tournamentSubmissions } }))}
                   apiKey={props.apiKey}
-                    matches={data.matches}
+                  matches={data.matches}
                   showInactive={false}
                   mutable={true}
                 />
@@ -106,7 +106,7 @@ function ManageTournamentPage(props: AuthenticatedComponentProps) {
                 <a className="btn btn-primary mx-3" href={`/compete?tournamentId=${tournamentId}&kind=VALIDATE`}>
                   Compete!
                 </a>
-                <a className="btn btn-primary mx-3" href={`/compete?tournamentId=${tournamentId}&kind=TESTCASE`}>
+                <a className="btn btn-primary mx-3" href={`/compete?tournamentId=${tournamentId}&kind=TESTCASE`} hidden={props.apiKey.creatorUserId !== data.tournamentData.tournament.creatorUserId}>
                   Write a Testcase!
                 </a>
               </div>

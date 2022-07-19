@@ -115,7 +115,7 @@ function ManageTournamentSubmissionsTournament(props: ManageTournamentSubmission
     </thead>
     <tbody>
       {nonCompetingSubmission.length + scoredCompetingSubmissions.length === 0
-        ? <tr><td className="text-center" colSpan={4}>No Submissions or Testcases</td></tr>
+        ? <tr><td className="text-center" colSpan={6}>No Submissions or Testcases</td></tr>
         : <> </>
       }
       {scoredCompetingSubmissions
