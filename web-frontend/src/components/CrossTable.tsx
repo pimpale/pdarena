@@ -118,7 +118,7 @@ function CrossTable(props: CrossTableProps) {
 function getBackgroundColor(score: number) {
   const greenContent = 255 * (score / 10);
   const redContent = 255 * (1 - score / 10);
-  return `rgb(${redContent}, ${greenContent}, 0)`;
+  return `rgba(${redContent}, ${greenContent}, 0, 1)`;
 }
 
 export default CrossTable;

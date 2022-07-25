@@ -3,7 +3,7 @@ import { Container, Button } from 'react-bootstrap';
 import ExternalLayout from '../components/ExternalLayout';
 import { Section, BrandedComponentProps } from '@innexgo/common-react-components';
 
-import criticaWithText from '../img/critica_withtext.png';
+import atlasIcon from '../img/atlas_icon_light.png';
 
 function Home(props: BrandedComponentProps) {
 
@@ -66,7 +66,7 @@ function Home(props: BrandedComponentProps) {
       <>
         <Container fluid style={jumboStyle}>
 
-          <img src={criticaWithText} width="450" />
+          <img src={atlasIcon} width="450" />
 
           <div style={homeTextStyle}>
             <h1 style={gradText}>{props.branding.tagline}</h1>
@@ -90,7 +90,7 @@ function Home(props: BrandedComponentProps) {
           <Container style={{ paddingBottom: '30px' }}>
             <Section id="welcome" name={`Welcome to ${props.branding.name}`} >
               <div style={{ paddingBottom: '20px' }}>
-                Read better.
+                Prisoner's Dilemma!
               </div>
             </Section>
           </Container>

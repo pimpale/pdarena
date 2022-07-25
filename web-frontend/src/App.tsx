@@ -25,8 +25,8 @@ import ViewTournament from './pages/ViewTournament';
 import ViewTournamentSubmission from './pages/ViewTournamentSubmission';
 
 
-import DarkAdaptedIcon from "./img/critica_icon_light.png";
-import LightAdaptedIcon from "./img/critica_icon_dark.png";
+import LightAdaptedIcon from "./img/atlas_icon_light.png";
+import DarkAdaptedIcon from "./img/atlas_icon_dark.svg";
 
 // Bootstrap CSS & JS
 import './style/style.scss';

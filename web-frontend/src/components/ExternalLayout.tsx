@@ -66,6 +66,7 @@ class ExternalHeader extends React.Component<ExternalHeaderProps, ExternalHeader
     const gradText = {
       background: "linear-gradient(#87C6F0, #EFCB8C)",
       color: "transparent",
+      webkitBackgroundClip: "text",
       backgroundClip: "text",
       fontWeight: "bold" as "bold"
     }
@@ -81,7 +82,6 @@ class ExternalHeader extends React.Component<ExternalHeaderProps, ExternalHeader
             <div className="collapse navbar-collapse"
               id="navbarSupportedContent">
               <div className="navbar-nav ms-auto">
-                <a style={linkStyle} className="nav-item nav-link font-weight-bold" href="/article_search">Articles</a>
                 <a style={linkStyle} className="nav-item nav-link font-weight-bold" href="/dashboard">Login</a>
                 <a style={linkStyle} className="nav-item nav-link font-weight-bold" href="/register">Register</a>
               </div>
