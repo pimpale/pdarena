@@ -33,6 +33,10 @@ create table tournament_data(
   title text not null,
   -- tournament description
   description text  not null,
+  -- how many rounds in a matchup
+  n_rounds bigint not null,
+  -- how many matchups
+  n_matchups bigint not null,
   -- is the tournament still visible
   active bool not null
 );
@@ -75,18 +79,22 @@ create table match_resolution (
   creation_time bigint not null default extract(epoch from now()) * 1000,
   submission_id bigint not null references submission(submission_id),
   opponent_submission_id bigint not null references submission(submission_id),
+  -- which round in a matchup
   round bigint not null,
+  -- which matchup it is
+  matchup bigint not null,
   defected bool,
   stdout text not null,
   stderr text not null
 );
+
 
 create view recent_match_resolution as
   select mr.* from match_resolution mr
   inner join (
    select max(match_resolution_id) id 
    from match_resolution 
-   group by submission_id, opponent_submission_id, round
+   group by submission_id, opponent_submission_id, round, matchup
   ) maxids
   on maxids.id = mr.match_resolution_id;
 

@@ -19,8 +19,6 @@ use super::tournament_data_service;
 use super::tournament_service;
 use super::tournament_submission_service;
 
-const N_ROUNDS: i64 = 30;
-
 use std::error::Error;
 
 use super::Config;
@@ -115,6 +113,8 @@ async fn fill_tournament_data(
         tournament: fill_tournament(con, tournament).await?,
         title: tournament_data.title,
         description: tournament_data.description,
+        n_matchups: tournament_data.n_matchups,
+        n_rounds: tournament_data.n_rounds,
         active: tournament_data.active,
     })
 }
@@ -150,6 +150,7 @@ async fn fill_match_resolution(
         submission_id: match_resolution.submission_id,
         opponent_submission_id: match_resolution.opponent_submission_id,
         round: match_resolution.round,
+        matchup: match_resolution.matchup,
         defected: match_resolution.defected,
         stdout: match_resolution.stdout,
         stderr: match_resolution.stderr,
@@ -197,8 +198,31 @@ pub async fn submission_new(
 }
 
 // uses RunCode to do a match between two submissions
-pub async fn do_match(
+pub fn do_battle(
     db: Db,
+    n_matchups: i64,
+    n_rounds: i64,
+    run_code_service: RunCodeService,
+    submission: Submission,
+    opponent_submission: Submission,
+) {
+    for matchup in 0..n_matchups {
+        tokio::task::spawn(do_matchup(
+            db.clone(),
+            matchup,
+            n_rounds,
+            run_code_service.clone(),
+            submission.clone(),
+            opponent_submission.clone(),
+        ));
+    }
+}
+
+// uses RunCode to do a match between two submissions
+pub async fn do_matchup(
+    db: Db,
+    matchup: i64,
+    n_rounds: i64,
     run_code_service: RunCodeService,
     submission: Submission,
     opponent_submission: Submission,
@@ -206,18 +230,13 @@ pub async fn do_match(
     let mut submission_defection_history = vec![];
     let mut opponent_submission_defection_history = vec![];
 
-    println!(
-        "BATTLE {} vs {}",
-        submission.submission_id, opponent_submission.submission_id
-    );
-
-    for round in 0..N_ROUNDS {
-        println!("YEEEEET {}", round);
+    for round in 0..n_rounds {
         let submission_match_resolution = execute_match(
             db.clone(),
             &submission,
             &opponent_submission,
             round,
+            matchup,
             &opponent_submission_defection_history,
             &run_code_service,
         )
@@ -229,6 +248,7 @@ pub async fn do_match(
             &opponent_submission,
             &submission,
             round,
+            matchup,
             &submission_defection_history,
             &run_code_service,
         )
@@ -245,6 +265,7 @@ async fn execute_match(
     submission: &Submission,
     opponent_submission: &Submission,
     round: i64,
+    matchup: i64,
     opponent_defection_history: &Vec<Option<bool>>,
     run_code_service: &RunCodeService,
 ) -> Result<MatchResolution, AppError> {
@@ -304,6 +325,7 @@ async fn execute_match(
         submission.submission_id,
         opponent_submission.submission_id,
         round,
+        matchup,
         defected,
         resp.stdout,
         resp.stderr,
@@ -324,6 +346,15 @@ pub async fn tournament_new(
     // validate api key
     let user = get_user_if_api_key_valid(&auth_service, props.api_key).await?;
 
+    if props.n_rounds <= 0 {
+        return Err(AppError::TournamentDataNRoundsInvalid);
+    }
+    if props.n_matchups <= 0 {
+        return Err(AppError::TournamentDataNMatchupsInvalid);
+    }
+
+
+
     let con = &mut *db.lock().await;
 
     let mut sp = con.transaction().await.map_err(report_postgres_err)?;
@@ -340,6 +371,8 @@ pub async fn tournament_new(
         tournament.tournament_id,
         props.title,
         props.description,
+        props.n_rounds,
+        props.n_matchups,
         true,
     )
     .await
@@ -360,6 +393,13 @@ pub async fn tournament_data_new(
 ) -> Result<response::TournamentData, response::AppError> {
     // validate api key
     let user = get_user_if_api_key_valid(&auth_service, props.api_key).await?;
+
+    if props.n_rounds <= 0 {
+        return Err(AppError::TournamentDataNRoundsInvalid);
+    }
+    if props.n_matchups <= 0 {
+        return Err(AppError::TournamentDataNMatchupsInvalid);
+    }
 
     let con = &mut *db.lock().await;
 
@@ -382,6 +422,8 @@ pub async fn tournament_data_new(
         tournament.tournament_id,
         props.title,
         props.description,
+        props.n_rounds,
+        props.n_matchups,
         props.active,
     )
     .await
@@ -437,7 +479,7 @@ pub async fn tournament_submission_new(
 
     match props.kind {
         request::TournamentSubmissionKind::Validate => {
-            // if is validated in state, don't restart matches nothing
+            // only become validate if there was no submission earlier
             let prev_submission =
                 tournament_submission_service::get_recent_by_tournament_submission(
                     &mut sp,
@@ -463,12 +505,14 @@ pub async fn tournament_submission_new(
                             .map_err(report_postgres_err)?
                             .ok_or(AppError::SubmissionNonexistent)?;
 
-                    tokio::task::spawn(do_match(
+                    do_battle(
                         db.clone(),
+                        tournament_data.n_matchups,
+                        tournament_data.n_rounds,
                         run_code_service.clone(),
                         submission.clone(),
                         opponent_submission,
-                    ));
+                    );
                 }
             }
         }
@@ -524,7 +568,9 @@ pub async fn tournament_submission_new(
                     );
 
                     // ensure that there are at least tournament_data
-                    if testcase_results.len() < (N_ROUNDS * 2) as usize {
+                    if testcase_results.len()
+                        < (tournament_data.n_rounds * tournament_data.n_matchups * 2) as usize
+                    {
                         return Err(AppError::TournamentSubmissionTestcaseIncomplete);
                     }
 
@@ -550,21 +596,25 @@ pub async fn tournament_submission_new(
                             .map_err(report_postgres_err)?
                             .ok_or(AppError::SubmissionNonexistent)?;
 
-                    tokio::task::spawn(do_match(
+                    do_battle(
                         db.clone(),
+                        tournament_data.n_matchups,
+                        tournament_data.n_rounds,
                         run_code_service.clone(),
                         submission.clone(),
                         opponent_submission,
-                    ));
+                    );
                 }
 
                 // also matchup against self
-                tokio::task::spawn(do_match(
+                do_battle(
                     db.clone(),
+                    tournament_data.n_matchups,
+                    tournament_data.n_rounds,
                     run_code_service.clone(),
                     submission.clone(),
                     submission.clone(),
-                ));
+                );
             }
         }
         request::TournamentSubmissionKind::Testcase => {
@@ -591,12 +641,14 @@ pub async fn tournament_submission_new(
                         .map_err(report_postgres_err)?
                         .ok_or(AppError::SubmissionNonexistent)?;
 
-                tokio::task::spawn(do_match(
+                do_battle(
                     db.clone(),
+                    tournament_data.n_matchups,
+                    tournament_data.n_rounds,
                     run_code_service.clone(),
-                    opponent_submission,
                     submission.clone(),
-                ));
+                    opponent_submission,
+                );
             }
         }
         request::TournamentSubmissionKind::Cancel => {

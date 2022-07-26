@@ -10,6 +10,7 @@ impl From<tokio_postgres::row::Row> for MatchResolution {
             submission_id: row.get("submission_id"),
             opponent_submission_id: row.get("opponent_submission_id"),
             round: row.get("round"),
+            matchup: row.get("matchup"),
             creation_time: row.get("creation_time"),
             defected: row.get("defected"),
             stdout: row.get("stdout"),
@@ -23,6 +24,7 @@ pub async fn add(
     submission_id: i64,
     opponent_submission_id: i64,
     round: i64,
+    matchup: i64,
     defected: Option<bool>,
     stdout: String,
     stderr: String,
@@ -34,17 +36,19 @@ pub async fn add(
                  submission_id,
                  opponent_submission_id,
                  round,
+                 matchup,
                  defected,
                  stdout,
                  stderr
              )
-             VALUES ($1, $2, $3, $4, $5, $6)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
              RETURNING match_resolution_id, creation_time
             ",
             &[
                 &submission_id,
                 &opponent_submission_id,
                 &round,
+                &matchup,
                 &defected,
                 &stdout,
                 &stderr,
@@ -58,6 +62,7 @@ pub async fn add(
         submission_id,
         opponent_submission_id,
         round,
+        matchup,
         defected,
         stdout,
         stderr,
@@ -183,6 +188,7 @@ pub async fn query(
         "AND ($4::bigint[] IS NULL OR mr.submission_id = ANY($4))",
         "AND ($5::bigint[] IS NULL OR mr.opponent_submission_id = ANY($5))",
         "AND ($6::bigint[] IS NULL OR mr.round = ANY($6))",
+        "AND ($7::bigint[] IS NULL OR mr.matchup = ANY($7))",
         "ORDER BY mr.match_resolution_id",
     ]
     .join("\n");
@@ -199,6 +205,7 @@ pub async fn query(
                 &props.submission_id,
                 &props.opponent_submission_id,
                 &props.round,
+                &props.matchup,
             ],
         )
         .await?

@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::io::Write;
 
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -83,7 +82,7 @@ impl RunCodeService {
 
         let x = self
             .send_submission(RunCodeRequest {
-                max_time_s: 1.0,
+                max_time_s: super::MAX_TIME,
                 base_64_tar_gz: base64::encode(&tar_buf),
             })
             .await

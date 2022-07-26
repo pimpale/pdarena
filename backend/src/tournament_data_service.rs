@@ -12,6 +12,8 @@ impl From<tokio_postgres::row::Row> for TournamentData {
             tournament_id: row.get("tournament_id"),
             title: row.get("title"),
             description: row.get("description"),
+            n_rounds: row.get("n_rounds"),
+            n_matchups: row.get("n_matchups"),
             active: row.get("active"),
         }
     }
@@ -23,26 +25,32 @@ pub async fn add(
     tournament_id: i64,
     title: String,
     description: String,
+    n_rounds: i64,
+    n_matchups: i64,
     active: bool,
 ) -> Result<TournamentData, tokio_postgres::Error> {
     let row = con
         .query_one(
             "INSERT INTO
-       tournament_data(
-           creator_user_id,
-           tournament_id,
-           title,
-           description,
-           active
-       )
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING tournament_data_id, creation_time
-      ",
+             tournament_data(
+                 creator_user_id,
+                 tournament_id,
+                 title,
+                 description,
+                 n_rounds,
+                 n_matchups,
+                 active
+             )
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
+             RETURNING tournament_data_id, creation_time
+            ",
             &[
                 &creator_user_id,
                 &tournament_id,
                 &title,
                 &description,
+                &n_rounds,
+                &n_matchups,
                 &active,
             ],
         )
@@ -56,6 +64,8 @@ pub async fn add(
         tournament_id,
         title,
         description,
+        n_rounds,
+        n_matchups,
         active,
     })
 }

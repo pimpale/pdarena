@@ -23,6 +23,8 @@ pub struct TournamentData {
     pub tournament_id: i64,
     pub title: String,
     pub description: String,
+    pub n_rounds: i64,
+    pub n_matchups: i64,
     pub active: bool,
 }
 
@@ -43,6 +45,7 @@ pub struct MatchResolution {
     pub submission_id: i64,
     pub opponent_submission_id: i64,
     pub round: i64,
+    pub matchup: i64,
     pub creation_time: i64,
     pub defected: Option<bool>,
     pub stdout: String,

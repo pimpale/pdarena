@@ -28,6 +28,7 @@ mod api;
 mod db_types;
 mod handlers;
 
+static MAX_TIME: f32 = 1.0;
 static SERVICE_NAME: &str = "pdarena-service";
 
 #[derive(Parser, Clone)]
@@ -101,9 +102,7 @@ async fn main() {
     });
 
     let api = api::api(
-        Config {
-            site_external_url,
-        },
+        Config { site_external_url },
         db,
         auth_service,
         run_code_service,

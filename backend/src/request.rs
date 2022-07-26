@@ -37,6 +37,8 @@ pub struct TournamentNewProps {
   pub api_key: String,
   pub title: String,
   pub description: String,
+  pub n_rounds: i64,
+  pub n_matchups: i64,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -45,6 +47,8 @@ pub struct TournamentDataNewProps {
   pub tournament_id: i64,
   pub title: String,
   pub description: String,
+  pub n_rounds: i64,
+  pub n_matchups: i64,
   pub active: bool,
   pub api_key: String,
 }
@@ -106,5 +110,6 @@ pub struct MatchResolutionViewProps{
   pub submission_id: Option<Vec<i64>>,
   pub opponent_submission_id: Option<Vec<i64>>,
   pub round: Option<Vec<i64>>,
+  pub matchup: Option<Vec<i64>>,
   pub api_key: String,
 }
