@@ -18,7 +18,6 @@ pub enum AppError {
     TournamentArchived,
     DecodeError,
     InternalServerError,
-    MethodNotAllowed,
     Unauthorized,
     BadRequest,
     NotFound,

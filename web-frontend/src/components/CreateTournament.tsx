@@ -44,6 +44,8 @@ function CreateTournament(props: CreateTournamentProps) {
     const maybeTournament = await tournamentNew({
       title: values.title,
       description: values.description,
+      nMatchups: 30,
+      nRounds: 30,
       apiKey: props.apiKey.key,
     });
 

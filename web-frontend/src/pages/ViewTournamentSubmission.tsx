@@ -26,7 +26,7 @@ import EditTournamentSubmission from '../components/EditTournamentSubmission';
 
 import { Pencil as EditIcon, X as DeleteIcon, Eye as ViewIcon, Mailbox as SubmitIcon } from 'react-bootstrap-icons';
 
-import { ROUNDS, score } from '../utils/scoring';
+import { score } from '../utils/scoring';
 
 type ManageTournamentSubmissionPageData = {
   tournamentData: TournamentData,
@@ -107,6 +107,7 @@ const HiddenCodeCard = (props: HiddenCodeCardProps) =>
 
 
 type ShowVerifyProgressProps = {
+  tournamentData: TournamentData,
   tournamentSubmission: TournamentSubmission,
   tournamentSubmissions: TournamentSubmission[]
   matchesAsSubmission: MatchResolution[]
@@ -224,7 +225,7 @@ function ShowMatchupTable(props: ShowVerifyProgressProps) {
         </td>
         <td>
           <p>
-            ({entry.ms.length}/{ROUNDS})
+            ({entry.ms.length}/{props.tournamentData.nRounds})
             Avg: {isNaN(entry.score)
               ? "N/A"
               : entry.score.toFixed(3)
@@ -234,7 +235,7 @@ function ShowMatchupTable(props: ShowVerifyProgressProps) {
               <b className="text-danger">MATCH DISQUALIFIED</b>
               <p>(one or more matches failed)</p>
             </>
-            : entry.ms.length < ROUNDS
+            : entry.ms.length < props.tournamentData.nRounds
               ? <b className="text-secondary">MATCH IN PROGRESS</b>
               : <b className="text-success">MATCH VALID</b>
           }</p>
@@ -300,24 +301,24 @@ function ShowMatchupTable(props: ShowVerifyProgressProps) {
           </div>
           <h6>Opponent Stdout</h6>
           <div style={{ width: "100%", overflow: "scroll" }}>
-          <SyntaxHighligher
-            showLineNumbers
-            style={a11yDark}
-            children={inspectedMatchs[1].stdout} />
+            <SyntaxHighligher
+              showLineNumbers
+              style={a11yDark}
+              children={inspectedMatchs[1].stdout} />
           </div>
           <h6>Submission Stderr</h6>
           <div style={{ width: "100%", overflow: "scroll" }}>
-          <SyntaxHighligher
-            showLineNumbers
-            style={a11yDark}
-            children={inspectedMatchs[0].stderr} />
+            <SyntaxHighligher
+              showLineNumbers
+              style={a11yDark}
+              children={inspectedMatchs[0].stderr} />
           </div>
           <h6>Submission Stderr</h6>
           <div style={{ width: "100%", overflow: "scroll" }}>
-          <SyntaxHighligher
-            showLineNumbers
-            style={a11yDark}
-            children={inspectedMatchs[1].stderr} />
+            <SyntaxHighligher
+              showLineNumbers
+              style={a11yDark}
+              children={inspectedMatchs[1].stderr} />
           </div>
         </div>
       }
@@ -430,6 +431,7 @@ function ManageTournamentSubmissionPage(props: AuthenticatedComponentProps) {
               </Section>
               <Section name="Matchups" id="matchups">
                 <ShowMatchupTable
+                  tournamentData={data.tournamentData}
                   tournamentSubmission={data.tournamentSubmission}
                   tournamentSubmissions={data.tournamentSubmissions}
                   matchesAsSubmission={data.matchesAsSubmission}

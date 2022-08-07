@@ -3,11 +3,11 @@ import { Table } from 'react-bootstrap';
 import update from 'immutability-helper';
 import { ApiKey } from '@innexgo/frontend-auth-api';
 import { Link, AddButton, DisplayModal } from '@innexgo/common-react-components';
-import { MatchResolution, TournamentSubmission } from '../utils/api';
+import { MatchResolution, TournamentData, TournamentSubmission } from '../utils/api';
 import { ViewUser } from './ViewData';
 
 import { Eye as ViewIcon } from 'react-bootstrap-icons';
-import { ROUNDS, score } from '../utils/scoring';
+import { score } from '../utils/scoring';
 
 type ManageTournamentSubmissionRowProps = {
   rankingData?: { rank: number, score: number },
@@ -42,6 +42,7 @@ function ManageTournamentSubmissionRow(props: ManageTournamentSubmissionRowProps
 
 
 type ManageTournamentSubmissionsTournamentProps = {
+  tournamentData: TournamentData,
   tournamentSubmissions: TournamentSubmission[],
   setTournamentSubmissions: (tournamentSubmissions: TournamentSubmission[]) => void,
   matches: MatchResolution[]
@@ -89,7 +90,7 @@ function ManageTournamentSubmissionsTournament(props: ManageTournamentSubmission
     s: number
   }
 
-  const scoreMap = scoreEntries(competingSubmission.map(x => x.t), props.matches);
+  const scoreMap = scoreEntries(props.tournamentData, competingSubmission.map(x => x.t), props.matches);
 
   // score
   const scoredCompetingSubmissions: EnhancedTableRowData[] = competingSubmission
@@ -143,7 +144,11 @@ function ManageTournamentSubmissionsTournament(props: ManageTournamentSubmission
   </Table>
 }
 
-function scoreEntries(tournamentSubmissions: TournamentSubmission[], matches: MatchResolution[]) {
+function scoreEntries(
+  tournamentData: TournamentData,
+  tournamentSubmissions: TournamentSubmission[],
+  matches: MatchResolution[]
+) {
   // construct indexes to avoid paying linear cost
   const matchesById = new Map<string, Map<number, MatchResolution>>();
 
@@ -172,7 +177,7 @@ function scoreEntries(tournamentSubmissions: TournamentSubmission[], matches: Ma
       }
 
       const entries: Entry[] = []
-      for (let round = 0; round < ROUNDS; round++) {
+      for (let round = 0; round < tournamentData.nRounds; round++) {
         const m1 = reg?.get(round);
         const m2 = rev?.get(round);
         if (m1 && m2) {

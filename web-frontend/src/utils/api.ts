@@ -26,6 +26,8 @@ export type TournamentData = {
   tournament: Tournament,
   title: string,
   description: string,
+  nRounds: number,
+  nMatchups: number,
   active: boolean,
 }
 
@@ -45,28 +47,30 @@ export type MatchResolution = {
   submissionId: number,
   opponentSubmissionId: number,
   round: number,
+  matchup: number,
   defected: boolean | null,
   stdout: string,
   stderr: string,
 }
 
 export const AppErrorCodes = [
-  "NO_CAPABILITY",
-  "SUBMISSION_NONEXISTENT",
-  "TOURNAMENT_NONEXISTENT",
-  "SUBMISSION_TOO_LONG",
-  "TOURNAMENT_SUBMISSION_NOT_VALIDATED",
-  "TOURNAMENT_SUBMISSION_TESTCASE_FAILS",
-  "TOURNAMENT_SUBMISSION_TESTCASE_INCOMPLETE",
-  "TOURNAMENT_ARCHIVED",
-  "DECODE_ERROR",
-  "INTERNAL_SERVER_ERROR",
-  "METHOD_NOT_ALLOWED",
-  "UNAUTHORIZED",
-  "BAD_REQUEST",
-  "NOT_FOUND",
-  "NETWORK",
-  "UNKNOWN",
+    "NO_CAPABILITY",
+    "SUBMISSION_NONEXISTENT",
+    "TOURNAMENT_NONEXISTENT",
+    "TOURNAMENT_DATA_N_ROUNDS_INVALID",
+    "TOURNAMENT_DATA_N_MATCHUPS_INVALID",
+    "SUBMISSION_TOO_LONG",
+    "TOURNAMENT_SUBMISSION_NOT_VALIDATED",
+    "TOURNAMENT_SUBMISSION_TESTCASE_INCOMPLETE",
+    "TOURNAMENT_SUBMISSION_TESTCASE_FAILS",
+    "TOURNAMENT_ARCHIVED",
+    "DECODE_ERROR",
+    "INTERNAL_SERVER_ERROR",
+    "UNAUTHORIZED",
+    "BAD_REQUEST",
+    "NOT_FOUND",
+    "NETWORK",
+    "UNKNOWN",
 ] as const;
 
 // Creates a union export type
@@ -102,6 +106,8 @@ export type TournamentNewProps = {
   title: string,
   description: string,
   apiKey: string,
+  nRounds: number,
+  nMatchups: number,
 }
 
 export function tournamentNew(props: TournamentNewProps, server?: string): Promise<Result<TournamentData, AppErrorCode>> {
@@ -112,6 +118,8 @@ export type TournamentDataNewProps = {
   tournamentId: number,
   title: string,
   description: string,
+  nRounds: number,
+  nMatchups: number,
   active: boolean,
   apiKey: string,
 }
@@ -187,6 +195,7 @@ export type MatchResolutionViewProps = {
   submissionId?: number[],
   opponentSubmissionId?: number[],
   round?: number[],
+  matchup?: number[],
   apiKey: string,
 }
 

@@ -87,6 +87,7 @@ function ManageTournamentPage(props: AuthenticatedComponentProps) {
                 <b>Note:</b> submissions are on the columns, opponents are on the rows.
                 <div className="text-center p-3" style={{ overflow: "scroll" }}>
                   <CrossTable
+                    tournamentData={data.tournamentData}
                     tournamentSubmissions={data.tournamentSubmissions}
                     matches={data.matches}
                   />
@@ -94,6 +95,7 @@ function ManageTournamentPage(props: AuthenticatedComponentProps) {
               </Section>
               <Section name="Leaderboard" id="leaderboard">
                 <ManageTournamentSubmissionsTournament
+                  tournamentData={data.tournamentData}
                   tournamentSubmissions={data.tournamentSubmissions}
                   setTournamentSubmissions={tournamentSubmissions => setData(update(data, { tournamentSubmissions: { $set: tournamentSubmissions } }))}
                   apiKey={props.apiKey}

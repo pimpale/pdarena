@@ -33,6 +33,8 @@ function EditTournamentData(props: EditTournamentDataProps) {
       apiKey: props.apiKey.key,
       title: values.title,
       description: values.description,
+      nRounds: 30,
+      nMatchups: 30,
       active: props.tournamentData.active,
     });
 
@@ -138,6 +140,8 @@ function ArchiveTournament(props: ArchiveTournamentProps) {
       apiKey: props.apiKey.key,
       title: props.tournamentData.title,
       description: props.tournamentData.description,
+      nMatchups: props.tournamentData.nMatchups,
+      nRounds: props.tournamentData.nRounds,
       active: !props.tournamentData.active,
     });
 

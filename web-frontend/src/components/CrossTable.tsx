@@ -1,7 +1,8 @@
-import { MatchResolution, TournamentSubmission } from "../utils/api"
-import { ROUNDS, score } from "../utils/scoring";
+import { MatchResolution, TournamentData, TournamentSubmission } from "../utils/api"
+import { score } from "../utils/scoring";
 
 type CrossTableProps = {
+  tournamentData: TournamentData
   tournamentSubmissions: TournamentSubmission[]
   matches: MatchResolution[]
 }
@@ -49,7 +50,7 @@ function CrossTable(props: CrossTableProps) {
       const rev = matchesById.get(JSON.stringify([rowSubmission.submissionId, colSubmission.submissionId]));
 
       const entries: Entry[] = []
-      for (let round = 0; round < ROUNDS; round++) {
+      for (let round = 0; round < props.tournamentData.nRounds; round++) {
         const m1 = reg?.get(round);
         const m2 = rev?.get(round);
         if (m1 && m2) {
@@ -73,30 +74,32 @@ function CrossTable(props: CrossTableProps) {
 
   return <table className="mt-5" style={{ display: "inline-table" }}>
     <thead>
-      <th></th>
-      {tournamentSubmissions.map(x =>
-        <th
-          key={x.tournamentSubmissionId}
-          style={{
-            position: 'relative',
-            width: 50,
-            height: 30,
-          }}
-        >
-          <div
+      <tr>
+        <th></th>
+        {tournamentSubmissions.map(x =>
+          <th
+            key={x.tournamentSubmissionId}
             style={{
-              position: 'absolute',
-              width: "100%",
-              textAlign: "start",
-              transformOrigin: "top left",
-              transform: "rotate(-45deg)",
-              whiteSpace: "nowrap",
+              position: 'relative',
+              width: 50,
+              height: 30,
             }}
           >
-            <a href={`/tournament_submission?tournamentId=${x.tournament.tournamentId}&submissionId=${x.submissionId}`}>{x.name}</a>
-          </div>
-        </th>
-      )}
+            <div
+              style={{
+                position: 'absolute',
+                width: "100%",
+                textAlign: "start",
+                transformOrigin: "top left",
+                transform: "rotate(-45deg)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <a href={`/tournament_submission?tournamentId=${x.tournament.tournamentId}&submissionId=${x.submissionId}`}>{x.name}</a>
+            </div>
+          </th>
+        )}
+      </tr>
     </thead>
     <tbody>{table.map(({ rowSubmission, row }) =>
       <tr key={rowSubmission.tournamentSubmissionId}>
@@ -105,8 +108,11 @@ function CrossTable(props: CrossTableProps) {
             rowSubmission.name
           }</a>
         </th>
-        {row.map(x =>
-          <td style={{ backgroundColor: x.disqualified ? undefined : getBackgroundColor(x.avgScore) }}>
+        {row.map((x, i) =>
+          <td
+            key={i}
+            style={{ backgroundColor: x.disqualified ? undefined : getBackgroundColor(x.avgScore) }}
+          >
             {x.avgScore.toFixed(3)}
           </td>
         )}
