@@ -354,7 +354,6 @@ pub async fn tournament_new(
     }
 
 
-
     let con = &mut *db.lock().await;
 
     let mut sp = con.transaction().await.map_err(report_postgres_err)?;
@@ -399,6 +398,10 @@ pub async fn tournament_data_new(
     }
     if props.n_matchups <= 0 {
         return Err(AppError::TournamentDataNMatchupsInvalid);
+    }
+
+    if props.n_rounds * props.n_matchups <= 300 {
+        return Err(AppError::TournamentDataTooManyMatches);
     }
 
     let con = &mut *db.lock().await;
