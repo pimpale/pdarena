@@ -19,16 +19,15 @@ import { AuthenticatedComponentProps } from '@innexgo/auth-react-components';
 import { Prism as SyntaxHighligher } from 'react-syntax-highlighter';
 import { a11yDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
-import { Pencil as EditIcon, X as DeleteIcon, Eye as ViewIcon, Mailbox as SubmitIcon } from 'react-bootstrap-icons';
-
 import { score } from '../utils/scoring';
+import ManageMatchResolution from '../components/ManageMatchResolution';
 
 type ManageMatchResolutionPageData = {
   matchResolution: MatchResolution,
   tournamentData: TournamentData,
   tournamentSubmission: TournamentSubmission,
   opponentTournamentSubmission: TournamentSubmission,
-  
+
 }
 
 const loadManageMatchResolutionPage = async (props: AsyncProps<ManageMatchResolutionPageData>): Promise<ManageMatchResolutionPageData> => {
@@ -146,94 +145,33 @@ function ManageMatchResolutionPage(props: AuthenticatedComponentProps) {
             <Async.Pending><Loader /></Async.Pending>
             <Async.Rejected>{e => <ErrorMessage error={e} />}</Async.Rejected>
             <Async.Fulfilled<ManageMatchResolutionPageData>>{data => <>
-              <Section name={data.tournamentSubmission.name} id="intro">
-                <h5>Status: <span className={key.get(data.tournamentSubmission.kind)}>{data.tournamentSubmission.kind}</span></h5>
-                {data.submission === undefined
-                  ? <HiddenCodeCard className='mx-5 mb-5' />
-                  : <SyntaxHighligher
-                    className="mx-5 mb-5 h-100"
-                    showLineNumbers
-                    language="python"
-                    style={a11yDark}
-                    children={data.submission.code} />
-                }
-                <div className="m-3" hidden={data.submission === undefined}>
-                  <Action
-                    title="Edit"
-                    icon={EditIcon}
-                    onClick={() => setShowEditTournamentSubmissionModal(true)}
+              <Section name="Match Resolution Data" id="intro">
+                <div className="my-3">
+                  <ManageMatchResolution
+                    matchResolution={data.matchResolution}
+                    tournamentData={data.tournamentData}
+                    tournamentSubmission={data.tournamentSubmission}
+                    opponentTournamentSubmission={data.opponentTournamentSubmission}
                   />
-                  {data.tournamentSubmission.kind === "CANCEL" ? null :
-                    <Action
-                      title="Delete"
-                      icon={DeleteIcon}
-                      variant="danger"
-                      onClick={() => setShowCancelTournamentSubmissionModal(true)}
-                    />
-                  }
                 </div>
-                <p hidden={data.tournamentSubmission.kind !== "VALIDATE"}>
-                  <b>
-                    NOTE: your submission is still in validation mode.
-                    Once all testcases pass, you must submit it into the tournament.
-                  </b>
-                  <Action
-                    title="Submit"
-                    icon={SubmitIcon}
-                    onClick={() => setShowSubmitTournamentSubmissionModal(true)}
-                  />
-                </p>
-                <DisplayModal
-                  title="Edit Tournament Submission"
-                  show={showEditTournamentSubmissionModal}
-                  onClose={() => setShowEditTournamentSubmissionModal(false)}
-                >
-                  <EditTournamentSubmission
-                    tournamentSubmission={data.tournamentSubmission}
-                    setTournamentSubmission={ts => {
-                      setData(update(data, { tournamentSubmission: { $set: ts } }));
-                      setShowEditTournamentSubmissionModal(false);
-                    }}
-                    apiKey={props.apiKey}
-                  />
-                </DisplayModal>
-                <DisplayModal
-                  title="Cancel Tournament Submission"
-                  show={showCancelTournamentSubmissionModal}
-                  onClose={() => setShowCancelTournamentSubmissionModal(false)}
-                >
-                  <ArchiveTournamentSubmission
-                    tournamentSubmission={data.tournamentSubmission}
-                    setTournamentSubmission={ts => {
-                      setData(update(data, { tournamentSubmission: { $set: ts } }))
-                      setShowCancelTournamentSubmissionModal(false);
-                    }}
-                    apiKey={props.apiKey}
-                  />
-                </DisplayModal>
-                <DisplayModal
-                  title="Submit Tournament Submission"
-                  show={showSubmitTournamentSubmissionModal}
-                  onClose={() => setShowSubmitTournamentSubmissionModal(false)}
-                >
-                  <SubmitTournamentSubmission
-                    tournamentSubmission={data.tournamentSubmission}
-                    setTournamentSubmission={ts => {
-                      setData(update(data, { tournamentSubmission: { $set: ts } }))
-                      setShowSubmitTournamentSubmissionModal(false);
-                    }}
-                    apiKey={props.apiKey}
-                  />
-                </DisplayModal>
               </Section>
-              <Section name="Matchups" id="matchups">
-                <ShowMatchupTable
-                  tournamentData={data.tournamentData}
-                  tournamentSubmission={data.tournamentSubmission}
-                  tournamentSubmissions={data.tournamentSubmissions}
-                  matchesAsSubmission={data.matchesAsSubmission}
-                  matchesAsOpponent={data.matchesAsOpponent}
-                />
+              <Section name="Logs" id="logs">
+                <div>
+                  <h6>Submission Stdout</h6>
+                  <div style={{ width: "100%", overflow: "scroll" }}>
+                    <SyntaxHighligher
+                      showLineNumbers
+                      style={a11yDark}
+                      children={data.matchResolution.stdout} />
+                  </div>
+                  <h6>Submission Stderr</h6>
+                  <div style={{ width: "100%", overflow: "scroll" }}>
+                    <SyntaxHighligher
+                      showLineNumbers
+                      style={a11yDark}
+                      children={data.matchResolution.stderr} />
+                  </div>
+                </div>
               </Section>
             </>}
             </Async.Fulfilled>
@@ -244,5 +182,4 @@ function ManageMatchResolutionPage(props: AuthenticatedComponentProps) {
   )
 }
 
-
-export default ViewMatchResolution;
+export default ManageMatchResolutionPage;

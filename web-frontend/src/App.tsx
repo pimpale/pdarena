@@ -23,6 +23,7 @@ import Account from './pages/Account';
 import Compete from './pages/Compete';
 import ViewTournament from './pages/ViewTournament';
 import ViewTournamentSubmission from './pages/ViewTournamentSubmission';
+import ViewMatchResolution from './pages/ViewMatchResolution';
 
 
 import LightAdaptedIcon from "./img/atlas_icon_light.png";
@@ -31,8 +32,6 @@ import DarkAdaptedIcon from "./img/atlas_icon_dark.svg";
 // Bootstrap CSS & JS
 import './style/style.scss';
 import 'bootstrap/dist/js/bootstrap';
-
-
 
 function getPreexistingApiKey() {
   const preexistingApiKeyString = localStorage.getItem("apiKey");
@@ -92,6 +91,7 @@ function App() {
       <Route path="/compete" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={Compete} />} />
       <Route path="/tournament" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={ViewTournament} />} />
       <Route path="/tournament_submission" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={ViewTournamentSubmission} />} />
+      <Route path="/match_resolution" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={ViewMatchResolution} />} />
 
       {/* Error page */}
       <Route path="*" element={<Error404 />} />

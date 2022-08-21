@@ -296,7 +296,8 @@ function ShowMatchupTable(props: ShowVerifyProgressProps) {
     >
       {inspectedMatchs === null
         ? null
-        : <div>
+        :
+        <div>
           <h6>Submission Stdout</h6>
           <div style={{ width: "100%", overflow: "scroll" }}>
             <SyntaxHighligher

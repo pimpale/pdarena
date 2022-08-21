@@ -423,7 +423,7 @@ pub async fn tournament_data_new(
         return Err(AppError::TournamentDataNMatchupsInvalid);
     }
 
-    if props.n_rounds * props.n_matchups <= 300 {
+    if i64::saturating_mul(props.n_rounds, props.n_matchups) > 256 {
         return Err(AppError::TournamentDataTooManyMatches);
     }
 

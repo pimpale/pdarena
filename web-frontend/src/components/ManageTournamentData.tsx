@@ -5,11 +5,12 @@ import { Async, AsyncProps } from 'react-async';
 import { tournamentDataView, tournamentDataNew, TournamentData, } from '../utils/api';
 import { ViewUser } from '../components/ViewData';
 import { Pencil as EditIcon, X as DeleteIcon, BoxArrowUp as RestoreIcon } from 'react-bootstrap-icons';
-import { Formik, FormikHelpers } from 'formik'
+import { Formik, FormikErrors, FormikHelpers } from 'formik'
 import format from 'date-fns/format';
 
 import { isErr, unwrap } from '@innexgo/frontend-common';
 import { User, ApiKey } from '@innexgo/frontend-auth-api';
+import { useInRouterContext } from 'react-router-dom';
 
 
 type EditTournamentDataProps = {
@@ -23,18 +24,47 @@ function EditTournamentData(props: EditTournamentDataProps) {
   type EditTournamentDataValue = {
     title: string,
     description: string,
+    nRounds: string,
+    nMatchups: string,
   }
 
   const onSubmit = async (values: EditTournamentDataValue,
     fprops: FormikHelpers<EditTournamentDataValue>) => {
+
+    let errors: FormikErrors<EditTournamentDataValue > = {};
+
+    // Validate input
+
+    let hasError = false;
+    if (values.title === "") {
+      errors.title = "Please enter your tournament title";
+      hasError = true;
+    }
+    if (values.description === "") {
+      errors.description = "Please enter a description";
+      hasError = true;
+    }
+
+    const nRounds = parseInt(values.nRounds);
+    if (isNaN(nRounds) || nRounds <= 0) {
+      errors.nRounds = "Please enter a valid integer greater than 0";
+      hasError = true;
+    }
+
+    const nMatchups = parseInt(values.nMatchups);
+    if (isNaN(nMatchups) || nMatchups <= 0) {
+      errors.nMatchups = "Please enter a valid integer greater than 0";
+      hasError = true;
+    }
+
 
     const maybeTournamentData = await tournamentDataNew({
       tournamentId: props.tournamentData.tournament.tournamentId,
       apiKey: props.apiKey.key,
       title: values.title,
       description: values.description,
-      nRounds: 30,
-      nMatchups: 30,
+      nRounds,
+      nMatchups,
       active: props.tournamentData.active,
     });
 
@@ -43,6 +73,27 @@ function EditTournamentData(props: EditTournamentDataProps) {
         case "UNAUTHORIZED": {
           fprops.setStatus({
             failureResult: "You are not authorized to edit this tournament.",
+            successResult: ""
+          });
+          break;
+        }
+        case "TOURNAMENT_DATA_N_MATCHUPS_INVALID": {
+          fprops.setStatus({
+            failureResult: "The number of matchups is invalid",
+            successResult: ""
+          });
+          break;
+        }
+        case "TOURNAMENT_DATA_N_ROUNDS_INVALID": {
+          fprops.setStatus({
+            failureResult: "The number of rounds is invalid",
+            successResult: ""
+          });
+          break;
+        }
+        case "TOURNAMENT_DATA_TOO_MANY_MATCHES": {
+          fprops.setStatus({
+            failureResult: "Please reduce either the number of rounds or number of matchups.",
             successResult: ""
           });
           break;
@@ -72,7 +123,9 @@ function EditTournamentData(props: EditTournamentDataProps) {
       onSubmit={onSubmit}
       initialValues={{
         title: props.tournamentData.title,
-        description: props.tournamentData.description
+        description: props.tournamentData.description,
+        nMatchups: "" + props.tournamentData.nMatchups,
+        nRounds: "" + props.tournamentData.nRounds,
       }}
       initialStatus={{
         failureResult: "",
@@ -108,6 +161,30 @@ function EditTournamentData(props: EditTournamentDataProps) {
                 isInvalid={!!fprops.errors.description}
               />
               <Form.Control.Feedback type="invalid">{fprops.errors.description}</Form.Control.Feedback>
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label >Number of Matchups</Form.Label>
+              <Form.Control
+                name="nMatchups"
+                type="number"
+                placeholder="Number of Matchups"
+                value={fprops.values.nMatchups}
+                onChange={e => fprops.setFieldValue("nMatchups", e.target.value)}
+                isInvalid={!!fprops.errors.nMatchups}
+              />
+              <Form.Control.Feedback type="invalid">{fprops.errors.nMatchups}</Form.Control.Feedback>
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label >Number of Rounds per Matchup</Form.Label>
+              <Form.Control
+                name="nRounds"
+                type="number"
+                placeholder="Number of Rounds per Matchup"
+                value={fprops.values.nRounds}
+                onChange={e => fprops.setFieldValue("nRounds", e.target.value)}
+                isInvalid={!!fprops.errors.nRounds}
+              />
+              <Form.Control.Feedback type="invalid">{fprops.errors.nRounds}</Form.Control.Feedback>
             </Form.Group>
             <Form.Group className="mb-3">
               <Button type="submit">Submit</Button>
