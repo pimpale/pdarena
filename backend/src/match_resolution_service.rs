@@ -180,7 +180,11 @@ pub async fn query(
     props: super::request::MatchResolutionViewProps,
 ) -> Result<Vec<MatchResolution>, tokio_postgres::Error> {
     let sql = [
-        "SELECT mr.* FROM recent_match_resolution mr",
+        if props.only_recent {
+            "SELECT mr.* FROM recent_match_resolution mr"
+        } else {
+            "SELECT mr.* FROM match_resolution mr"
+        },
         "WHERE 1 = 1",
         "AND ($1::bigint   IS NULL OR mr.creation_time >= $1)",
         "AND ($2::bigint   IS NULL OR mr.creation_time <= $2)",

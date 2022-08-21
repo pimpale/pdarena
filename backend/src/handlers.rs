@@ -8,7 +8,6 @@ use auth_service_api::response::AuthError;
 use auth_service_api::response::User;
 use futures_util::{SinkExt, StreamExt};
 use tokio_postgres::AsyncMessage;
-use tokio_postgres::Notification;
 use warp::ws::Message;
 
 use super::request;
@@ -793,6 +792,102 @@ pub async fn match_resolution_view(
 
     Ok(resp_match_resolutions)
 }
+
+
+pub async fn tournament_submission_stream(
+    config: Config,
+    _db: Db,
+    _auth_service: AuthService,
+    _run_code_service: RunCodeService,
+    websocket: warp::ws::WebSocket,
+) {
+    tokio::pin!(websocket);
+
+    let result: Result<(), response::AppError> = try {
+        let message = websocket
+            .next()
+            .await
+            // socket closed cleanly
+            .ok_or(response::AppError::StreamEndBeforeRequest)?
+            // websocket errored out for some reason
+            .map_err(|_| response::AppError::StreamEndBeforeRequest)?;
+        let message_str = message
+            .to_str()
+            // message wasn't text
+            .map_err(|_| response::AppError::StreamEndBeforeRequest)?;
+
+        let props = serde_json::from_str::<request::TournamentSubmissionViewProps>(message_str)
+            .map_err(|_| response::AppError::DecodeError)?;
+
+        // need to create a new connection/client pair here
+        let (mut client, mut connect) =
+            tokio_postgres::connect(&config.database_url, tokio_postgres::NoTls)
+                .await
+                .map_err(report_postgres_err)?;
+
+        // get client to listen to notifications
+        client
+            .execute("listen tournament_submission", &[])
+            .await
+            .map_err(report_postgres_err)?;
+
+        // initialize the next novel id to the one specified
+        let mut next_new_id = props.min_id;
+
+        let mut db_notif_stream = futures_util::stream::poll_fn(move |cx| connect.poll_message(cx));
+
+        // return tournament_submissions
+        while let Some(db_notif) = db_notif_stream.next().await {
+            match db_notif {
+                Ok(AsyncMessage::Notification(notification))
+                    if notification.payload() == "insert" =>
+                {
+                    // set the max id to the one specified at the end of the loop
+                    let mut adjusted_props = props.clone();
+                    adjusted_props.min_id = next_new_id;
+                    // get data
+                    let tournament_submission =
+                        tournament_submission_service::query(&mut client, adjusted_props)
+                            .await
+                            .map_err(report_postgres_err)?;
+
+                    let mut resp_tournament_submissions = vec![];
+                    for u in tournament_submission.into_iter() {
+                        resp_tournament_submissions
+                            .push(fill_tournament_submission(&mut client, u).await?);
+                    }
+
+                    // set the next new id to the largest one retrieved  + 1
+                    next_new_id = resp_tournament_submissions
+                        .iter()
+                        .fold(next_new_id, |acc, o| match acc {
+                            Some(current_largest_id) => {
+                                Some(i64::max(current_largest_id, o.tournament_submission_id))
+                            }
+                            None => Some(o.tournament_submission_id),
+                        })
+                        .map(|n| n + 1);
+
+                    // if we have more than an empty array
+                    if resp_tournament_submissions.len() > 0 {
+                        let json_str = serde_json::to_string(&resp_tournament_submissions)
+                            .expect("serde should have serialized json");
+
+                        // try to send array. If it fails then we close the websocket
+                        if let Err(_) = websocket.send(Message::text(json_str)).await {
+                            break;
+                        }
+                    }
+                }
+                // do nothing for other notifications
+                Ok(_) => (),
+                Err(e) => Err(report_postgres_err(e))?,
+            };
+        }
+        return ();
+    };
+}
+
 
 pub async fn match_resolution_lite_stream(
     config: Config,

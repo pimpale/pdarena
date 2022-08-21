@@ -106,6 +106,14 @@ pub fn api(
             run_code_service.clone(),
             warp::path!("public_ws" / "match_resolution_lite" / "stream"),
             handlers::match_resolution_lite_stream,
+        ),
+        ws_adapter(
+            config.clone(),
+            db.clone(),
+            auth_service.clone(),
+            run_code_service.clone(),
+            warp::path!("public_ws" / "tournament_submission" / "stream"),
+            handlers::tournament_submission_stream,
         )
     )
     .recover(handle_rejection)

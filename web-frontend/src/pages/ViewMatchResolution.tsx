@@ -33,6 +33,7 @@ type ManageMatchResolutionPageData = {
 const loadManageMatchResolutionPage = async (props: AsyncProps<ManageMatchResolutionPageData>): Promise<ManageMatchResolutionPageData> => {
   const matchResolution = await matchResolutionView({
     matchResolutionId: [props.matchResolutionId],
+    onlyRecent: true,
     apiKey: props.apiKey.key
   })
     .then(unwrap)
@@ -75,63 +76,6 @@ const loadManageMatchResolutionPage = async (props: AsyncProps<ManageMatchResolu
   };
 }
 
-
-type HiddenCodeCardProps = {
-  className: string
-};
-
-
-const HiddenCodeCard = (props: HiddenCodeCardProps) =>
-  <div className={props.className} >
-    <div
-      className='w-100 d-flex bg-light text-secondary'
-      style={{ borderStyle: 'dashed', borderWidth: "medium", height: "20rem" }}
-    >
-      <h5 className='mx-auto my-auto '>Code Hidden</h5>
-    </div>
-  </div>
-
-
-type ShowVerifyProgressProps = {
-  tournamentData: TournamentData,
-  tournamentSubmission: TournamentSubmission,
-  tournamentSubmissions: TournamentSubmission[]
-  matchesAsSubmission: MatchResolution[]
-  matchesAsOpponent: MatchResolution[]
-}
-
-type Entry = {
-  m1: MatchResolution,
-  m2: MatchResolution,
-  m_score?: number
-}
-
-
-type ToggleableElementProps = {
-  children: React.ReactNode,
-}
-
-const ToggleableElement = (props: ToggleableElementProps) => {
-  const [expanded, setExpanded] = React.useState(false);
-
-  const expandedStyle = {
-  }
-
-  const opacity = 0.0;
-
-  const compressedStyle = {
-    overflow: "hidden" as const,
-    maxHeight: "10rem",
-    mask: `linear-gradient(180deg, black, rgba(255, 255, 255, ${opacity})) center bottom/100% 5rem no-repeat, linear-gradient(180deg, black, black) center top/100% calc(100% - 5rem) no-repeat`
-  }
-
-  return <div className='text-center'>
-    <div style={expanded ? expandedStyle : compressedStyle} >
-      {props.children}
-    </div>
-    <button className='btn btn-primary' onClick={() => setExpanded(!expanded)}>{expanded ? "Hide" : "Show"}</button>
-  </div>
-}
 
 function ManageMatchResolutionPage(props: AuthenticatedComponentProps) {
   const matchResolutionId = parseInt(new URLSearchParams(window.location.search).get("matchResolutionId") ?? "");

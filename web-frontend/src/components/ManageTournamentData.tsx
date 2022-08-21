@@ -304,12 +304,20 @@ const ManageTournamentData = (props: {
           <td>{props.tournamentData.description}</td>
         </tr>
         <tr>
+          <th>Number of Matchups</th>
+          <td>{props.tournamentData.nMatchups}</td>
+        </tr>
+        <tr>
+          <th>Number of Rounds per Matchup</th>
+          <td>{props.tournamentData.nRounds}</td>
+        </tr>
+        <tr>
           <th>Creator</th>
           <td><ViewUser userId={props.tournamentData.tournament.creatorUserId} apiKey={props.apiKey} expanded={false} /></td>
         </tr>
         <tr>
           <th>Creation Time</th>
-          <td>{format(props.tournamentData.tournament.creationTime, "MMM do")} </td>
+          <td>{format(props.tournamentData.tournament.creationTime, "MMM do")}</td>
         </tr>
       </tbody>
     </Table>

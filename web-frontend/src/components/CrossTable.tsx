@@ -1,10 +1,86 @@
-import { MatchResolution, TournamentData, TournamentSubmission } from "../utils/api"
+import { MatchResolution, MatchResolutionLite, Tournament, TournamentData, TournamentSubmission } from "../utils/api"
 import { score } from "../utils/scoring";
+
+export type LookupTable =
+  // Submission Id
+  Map<number,
+    // Opponent Submission Id
+    Map<number,
+      // by matchup id
+      Map<number,
+        // by round id
+        Map<number,
+          MatchResolutionLite
+        >
+      >
+    >
+  >;
+
+export type MatchupResult = {
+  entries: Array<Array<number | undefined>>,
+  avgScore: number,
+  disqualified: boolean,
+}
+
+export function scoreMatchups(
+  tournamentData: TournamentData,
+  matches: LookupTable,
+  submission: TournamentSubmission,
+  opponentSubmission: TournamentSubmission,
+): MatchupResult {
+  const reg = matches.get(submission.submissionId)?.get(opponentSubmission.submissionId);
+  const rev = matches.get(opponentSubmission.submissionId)?.get(submission.submissionId);
+
+  const entries: Array<Array<number | undefined>> = [];
+  for (let matchup = 0; matchup < tournamentData.nMatchups; matchup++) {
+    const reg_matchup = reg?.get(matchup);
+    const rev_matchup = rev?.get(matchup);
+    const entry_row: Array<number | undefined> = [];
+    for (let round = 0; round < tournamentData.nRounds; round++) {
+      const submission_defected = reg_matchup?.get(round)?.defected;
+      const opponent_defected = rev_matchup?.get(round)?.defected;
+      const m_score = typeof submission_defected === 'boolean' && typeof opponent_defected === 'boolean'
+        ? score(submission_defected, opponent_defected)
+        : undefined;
+      entry_row.push(m_score)
+    }
+    entries.push(entry_row);
+  }
+
+  // disqualified if we have missing entries
+  const disqualified = entries.some(row => row.some(m_score => m_score === undefined));
+
+  const scores = entries.flat().filter(m_score => m_score !== undefined).map(m_score => m_score || 0);
+  const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+
+  return { entries, avgScore, disqualified }
+}
+
+export function scoreEntries(
+  tournamentData: TournamentData,
+  tournamentSubmissions: TournamentSubmission[],
+  matches: LookupTable
+) {
+  const table: { rowSubmission: TournamentSubmission, row: MatchupResult[] }[] = [];
+  for (const rowSubmission of tournamentSubmissions) {
+    const row: MatchupResult[] = []
+    for (const colSubmission of tournamentSubmissions) {
+      row.push(scoreMatchups(
+        tournamentData,
+        matches,
+        rowSubmission,
+        colSubmission
+      ));
+    }
+    table.push({ rowSubmission, row });
+  }
+  return table;
+}
 
 type CrossTableProps = {
   tournamentData: TournamentData
   tournamentSubmissions: TournamentSubmission[]
-  matches: MatchResolution[]
+  matches: LookupTable
 }
 
 function CrossTable(props: CrossTableProps) {
@@ -16,61 +92,7 @@ function CrossTable(props: CrossTableProps) {
     return <h5 className="m-5">No Competing Submissions!</h5>
   }
 
-  type Entry = {
-    m1: MatchResolution,
-    m2: MatchResolution,
-    m_score?: number
-  }
-
-  type MatchupResult = {
-    entries: Entry[],
-    avgScore: number,
-    disqualified: boolean,
-  }
-
-  // construct indexes to avoid paying linear cost
-  const matchesById = new Map<string, Map<number, MatchResolution>>();
-
-  for (const match of props.matches) {
-    const id = JSON.stringify([match.submissionId, match.opponentSubmissionId]);
-    const matchesByIdResult = matchesById.get(id);
-    if (matchesByIdResult === undefined) {
-      matchesById.set(id, new Map([[match.round, match]]));
-    } else {
-      matchesByIdResult.set(match.round, match);
-    }
-  }
-
-  const table: { rowSubmission: TournamentSubmission, row: MatchupResult[] }[] = [];
-
-  for (const rowSubmission of tournamentSubmissions) {
-    const row: MatchupResult[] = []
-    for (const colSubmission of tournamentSubmissions) {
-      const reg = matchesById.get(JSON.stringify([colSubmission.submissionId, rowSubmission.submissionId]));
-      const rev = matchesById.get(JSON.stringify([rowSubmission.submissionId, colSubmission.submissionId]));
-
-      const entries: Entry[] = []
-      for (let round = 0; round < props.tournamentData.nRounds; round++) {
-        const m1 = reg?.get(round);
-        const m2 = rev?.get(round);
-        if (m1 && m2) {
-          const m_score = m1.defected !== null && m2.defected !== null
-            ? score(m1.defected, m2.defected)
-            : undefined
-          entries.push({ m1, m2, m_score })
-        }
-      }
-
-      const scores = entries.filter(({ m_score }) => m_score !== undefined).map(({ m_score }) => m_score || 0);
-      const disqualified = entries.some(({ m_score }) => m_score === undefined);
-      const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
-
-      row.push({ entries, avgScore, disqualified });
-    }
-    table.push({ rowSubmission, row });
-  }
-
-
+  const table = scoreEntries(props.tournamentData, props.tournamentSubmissions, props.matches);
 
   return <table className="mt-5" style={{ display: "inline-table" }}>
     <thead>

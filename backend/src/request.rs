@@ -93,6 +93,8 @@ pub struct TournamentSubmissionViewProps{
   pub tournament_submission_id: Option<Vec<i64>>,
   pub min_creation_time: Option<i64>,
   pub max_creation_time: Option<i64>,
+  pub min_id: Option<i64>,
+  pub max_id: Option<i64>,
   pub creator_user_id: Option<Vec<i64>>,
   pub tournament_id: Option<Vec<i64>>,
   pub submission_id: Option<Vec<i64>>,
@@ -113,5 +115,6 @@ pub struct MatchResolutionViewProps{
   pub opponent_submission_id: Option<Vec<i64>>,
   pub round: Option<Vec<i64>>,
   pub matchup: Option<Vec<i64>>,
+  pub only_recent: bool,
   pub api_key: String,
 }

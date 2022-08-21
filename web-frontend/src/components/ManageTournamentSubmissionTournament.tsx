@@ -8,6 +8,7 @@ import { ViewUser } from './ViewData';
 
 import { Eye as ViewIcon } from 'react-bootstrap-icons';
 import { score } from '../utils/scoring';
+import { LookupTable, scoreEntries } from './CrossTable';
 
 type ManageTournamentSubmissionRowProps = {
   rankingData?: { rank: number, score: number },
@@ -45,7 +46,7 @@ type ManageTournamentSubmissionsTournamentProps = {
   tournamentData: TournamentData,
   tournamentSubmissions: TournamentSubmission[],
   setTournamentSubmissions: (tournamentSubmissions: TournamentSubmission[]) => void,
-  matches: MatchResolution[]
+  matches: LookupTable
   showInactive: boolean,
   mutable: boolean,
   apiKey: ApiKey,
@@ -90,7 +91,13 @@ function ManageTournamentSubmissionsTournament(props: ManageTournamentSubmission
     s: number
   }
 
-  const scoreMap = scoreEntries(props.tournamentData, competingSubmission.map(x => x.t), props.matches);
+  const scoreTable = scoreEntries(props.tournamentData, competingSubmission.map(x => x.t), props.matches);
+  const scoreMap = new Map(scoreTable.map(x => [
+    // id
+    x.rowSubmission.tournamentSubmissionId,
+    // average score
+    x.row.reduce((acc, o) => acc + o.avgScore, 0) / x.row.length
+  ]));
 
   // score
   const scoredCompetingSubmissions: EnhancedTableRowData[] = competingSubmission
@@ -98,7 +105,6 @@ function ManageTournamentSubmissionsTournament(props: ManageTournamentSubmission
 
   // sort
   scoredCompetingSubmissions.sort((a, b) => b.s - a.s)
-
 
 
   const [showCreateTemplate, setShowCreateTemplate] = React.useState(false);
@@ -144,66 +150,6 @@ function ManageTournamentSubmissionsTournament(props: ManageTournamentSubmission
   </Table>
 }
 
-function scoreEntries(
-  tournamentData: TournamentData,
-  tournamentSubmissions: TournamentSubmission[],
-  matches: MatchResolution[]
-) {
-  // construct indexes to avoid paying linear cost
-  const matchesById = new Map<string, Map<number, MatchResolution>>();
 
-  for (const match of matches) {
-    const id = JSON.stringify([match.submissionId, match.opponentSubmissionId]);
-    const matchesByIdResult = matchesById.get(id);
-    if (matchesByIdResult === undefined) {
-      matchesById.set(id, new Map([[match.round, match]]));
-    } else {
-      matchesByIdResult.set(match.round, match);
-    }
-  }
-
-  const retValue = new Map<number, number>();
-
-  for (const submission of tournamentSubmissions) {
-    const row: { avgScore: number, disqualified: boolean }[] = []
-    for (const opponentSubmission of tournamentSubmissions) {
-      const reg = matchesById.get(JSON.stringify([submission.submissionId, opponentSubmission.submissionId]));
-      const rev = matchesById.get(JSON.stringify([opponentSubmission.submissionId, submission.submissionId]));
-
-      type Entry = {
-        m1: MatchResolution,
-        m2: MatchResolution,
-        m_score?: number
-      }
-
-      const entries: Entry[] = []
-      for (let round = 0; round < tournamentData.nRounds; round++) {
-        const m1 = reg?.get(round);
-        const m2 = rev?.get(round);
-        if (m1 && m2) {
-          const m_score = m1.defected !== null && m2.defected !== null
-            ? score(m1.defected, m2.defected)
-            : undefined
-          entries.push({ m1, m2, m_score })
-        }
-      }
-
-      const scores = entries.filter(({ m_score }) => m_score !== undefined).map(({ m_score }) => m_score || 0);
-      const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
-      const disqualified = isNaN(avgScore) || entries.some(({ m_score }) => m_score === undefined);
-
-      row.push({ avgScore, disqualified });
-    }
-
-    // take average of the non-disqualified rounds
-    const validScores = row.filter(x => !x.disqualified).map(x => x.avgScore);
-
-    // add to map of tournamentSubmissionId  to score
-    const avgAvgScore = validScores.reduce((a, b) => a + b, 0) / validScores.length;
-    retValue.set(submission.tournamentSubmissionId, avgAvgScore);
-  }
-
-  return retValue;
-}
 
 export default ManageTournamentSubmissionsTournament;

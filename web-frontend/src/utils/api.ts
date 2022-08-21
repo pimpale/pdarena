@@ -210,6 +210,7 @@ export type MatchResolutionViewProps = {
   opponentSubmissionId?: number[],
   round?: number[],
   matchup?: number[],
+  onlyRecent: boolean,
   apiKey: string,
 }
 
