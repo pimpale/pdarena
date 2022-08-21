@@ -104,7 +104,7 @@ pub fn api(
             db.clone(),
             auth_service.clone(),
             run_code_service.clone(),
-            warp::path!("public" / "ws" / "match_resolution_lite" / "stream"),
+            warp::path!("public_ws" / "match_resolution_lite" / "stream"),
             handlers::match_resolution_lite_stream,
         )
     )

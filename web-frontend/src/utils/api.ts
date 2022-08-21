@@ -53,26 +53,38 @@ export type MatchResolution = {
   stderr: string,
 }
 
+export type MatchResolutionLite = {
+  matchResolutionId: number,
+  creationTime: number,
+  submissionId: number,
+  opponentSubmissionId: number,
+  round: number,
+  matchup: number,
+  defected: boolean | null,
+}
+
+
 export const AppErrorCodes = [
-    "NO_CAPABILITY",
-    "SUBMISSION_NONEXISTENT",
-    "TOURNAMENT_NONEXISTENT",
-    "TOURNAMENT_DATA_N_ROUNDS_INVALID",
-    "TOURNAMENT_DATA_N_MATCHUPS_INVALID",
-    "TOURNAMENT_DATA_TOO_MANY_MATCHES",
-    "SUBMISSION_TOO_LONG",
-    "TOURNAMENT_SUBMISSION_NOT_VALIDATED",
-    "TOURNAMENT_SUBMISSION_TESTCASE_INCOMPLETE",
-    "TOURNAMENT_SUBMISSION_TESTCASE_FAILS",
-    "TOURNAMENT_ARCHIVED",
-    "DECODE_ERROR",
-    "METHOD_NOT_ALLOWED",
-    "INTERNAL_SERVER_ERROR",
-    "UNAUTHORIZED",
-    "BAD_REQUEST",
-    "NOT_FOUND",
-    "NETWORK",
-    "UNKNOWN",
+  "NO_CAPABILITY",
+  "SUBMISSION_NONEXISTENT",
+  "TOURNAMENT_NONEXISTENT",
+  "TOURNAMENT_DATA_N_ROUNDS_INVALID",
+  "TOURNAMENT_DATA_N_MATCHUPS_INVALID",
+  "TOURNAMENT_DATA_TOO_MANY_MATCHES",
+  "SUBMISSION_TOO_LONG",
+  "TOURNAMENT_SUBMISSION_NOT_VALIDATED",
+  "TOURNAMENT_SUBMISSION_TESTCASE_INCOMPLETE",
+  "TOURNAMENT_SUBMISSION_TESTCASE_FAILS",
+  "TOURNAMENT_ARCHIVED",
+  "STREAM_END_BEFORE_REQUEST",
+  "DECODE_ERROR",
+  "METHOD_NOT_ALLOWED",
+  "INTERNAL_SERVER_ERROR",
+  "UNAUTHORIZED",
+  "BAD_REQUEST",
+  "NOT_FOUND",
+  "NETWORK",
+  "UNKNOWN",
 ] as const;
 
 // Creates a union export type
@@ -188,11 +200,11 @@ export function tournamentSubmissionView(props: TournamentSubmissionViewProps, s
   return fetchApiOrNetworkError(undefToStr(server) + "/pdarena/tournament_submission/view", props);
 }
 
-
-
 export type MatchResolutionViewProps = {
   minCreationTime?: number,
   maxCreationTime?: number,
+  minId?: number,
+  maxId?: number,
   matchResolutionId?: number[],
   submissionId?: number[],
   opponentSubmissionId?: number[],
@@ -205,5 +217,17 @@ export function matchResolutionView(props: MatchResolutionViewProps, server?: st
   return fetchApiOrNetworkError(undefToStr(server) + "/pdarena/match_resolution/view", props);
 }
 
+function wsRelativeUrl(relPath: string) {
+  const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+  return `${protocol}://${window.location.host}/${relPath}/ws_api`
+}
 
-
+export function matchResolutionLiteStream(props: MatchResolutionViewProps, server?: string): WebSocket {
+  const path = "/pdarena/match_resolution_lite/stream";
+  const url = server === undefined
+    ? wsRelativeUrl(path)
+    : server + path;
+  const ws = new WebSocket(url);
+  ws.addEventListener('open', () => ws.send(JSON.stringify(props)));
+  return ws;
+}

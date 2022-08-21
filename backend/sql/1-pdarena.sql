@@ -88,7 +88,6 @@ create table match_resolution (
   stderr text not null
 );
 
-
 create view recent_match_resolution as
   select mr.* from match_resolution mr
   inner join (

@@ -7,6 +7,8 @@ use auth_service_api::client::AuthService;
 use auth_service_api::response::AuthError;
 use auth_service_api::response::User;
 use futures_util::{SinkExt, StreamExt};
+use tokio_postgres::AsyncMessage;
+use tokio_postgres::Notification;
 use warp::ws::Message;
 
 use super::request;
@@ -349,6 +351,11 @@ async fn execute_match(
     )
     .await
     .map_err(report_postgres_err)?;
+
+    // mark done
+    con.execute("notify match_resolution, 'insert'", &[])
+        .await
+        .map_err(report_postgres_err)?;
 
     Ok(match_resolution)
 }
@@ -813,49 +820,70 @@ pub async fn match_resolution_lite_stream(
             .map_err(|_| response::AppError::DecodeError)?;
 
         // need to create a new connection/client pair here
-        let (mut client, connect) =
+        let (mut client, mut connect) =
             tokio_postgres::connect(&config.database_url, tokio_postgres::NoTls)
                 .await
                 .map_err(report_postgres_err)?;
 
+        // get client to listen to notifications
+        client
+            .execute("listen match_resolution", &[])
+            .await
+            .map_err(report_postgres_err)?;
+
         // initialize the next novel id to the one specified
         let mut next_new_id = props.min_id;
 
+        let mut db_notif_stream = futures_util::stream::poll_fn(move |cx| connect.poll_message(cx));
+
         // return match_resolutions
-        loop {
-            // set the max id to the one specified at the end of the loop
-            let mut adjusted_props = props.clone();
-            adjusted_props.min_id = next_new_id;
-            // get data
-            let match_resolution = match_resolution_service::query(&mut client, adjusted_props)
-                .await
-                .map_err(report_postgres_err)?;
+        while let Some(db_notif) = db_notif_stream.next().await {
+            match db_notif {
+                Ok(AsyncMessage::Notification(notification))
+                    if notification.payload() == "insert" =>
+                {
+                    // set the max id to the one specified at the end of the loop
+                    let mut adjusted_props = props.clone();
+                    adjusted_props.min_id = next_new_id;
+                    // get data
+                    let match_resolution =
+                        match_resolution_service::query(&mut client, adjusted_props)
+                            .await
+                            .map_err(report_postgres_err)?;
 
-            let mut resp_match_resolutions = vec![];
-            for u in match_resolution.into_iter() {
-                resp_match_resolutions.push(fill_match_resolution_lite(&mut client, u).await?);
-            }
-
-            // set the next new id to the largest one retrieved  + 1
-            next_new_id = resp_match_resolutions
-                .iter()
-                .fold(next_new_id, |acc, o| match acc {
-                    Some(current_largest_id) => {
-                        Some(i64::max(current_largest_id, o.match_resolution_id))
+                    let mut resp_match_resolutions = vec![];
+                    for u in match_resolution.into_iter() {
+                        resp_match_resolutions
+                            .push(fill_match_resolution_lite(&mut client, u).await?);
                     }
-                    None => Some(o.match_resolution_id),
-                })
-                .map(|n| n + 1);
 
-            let json_str = serde_json::to_string(&resp_match_resolutions)
-                .expect("serde should have serialized json");
+                    // set the next new id to the largest one retrieved  + 1
+                    next_new_id = resp_match_resolutions
+                        .iter()
+                        .fold(next_new_id, |acc, o| match acc {
+                            Some(current_largest_id) => {
+                                Some(i64::max(current_largest_id, o.match_resolution_id))
+                            }
+                            None => Some(o.match_resolution_id),
+                        })
+                        .map(|n| n + 1);
 
-            // try to send array. If it fails then we close the websocket
-            if let Err(_) = websocket.send(Message::text(json_str)).await {
-                break;
-            }
+                    // if we have more than an empty array
+                    if resp_match_resolutions.len() > 0 {
+                        let json_str = serde_json::to_string(&resp_match_resolutions)
+                            .expect("serde should have serialized json");
+
+                        // try to send array. If it fails then we close the websocket
+                        if let Err(_) = websocket.send(Message::text(json_str)).await {
+                            break;
+                        }
+                    }
+                }
+                // do nothing for other notifications
+                Ok(_) => (),
+                Err(e) => Err(report_postgres_err(e))?,
+            };
         }
-
         return ();
     };
 }

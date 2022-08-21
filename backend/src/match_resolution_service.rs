@@ -146,7 +146,6 @@ pub async fn get_last_successful_match_round(
     Ok(results)
 }
 
-
 pub async fn get_defection_history(
     con: &mut impl GenericClient,
     submission_id: i64,
@@ -160,7 +159,7 @@ pub async fn get_defection_history(
         "AND mr.submission_id = $1",
         "AND mr.opponent_submission_id = $2",
         "AND mr.round < $3",
-        "ORDER BY mr.round"
+        "ORDER BY mr.round",
     ]
     .join("\n");
 

@@ -242,6 +242,11 @@ function ShowMatchupTable(props: ShowVerifyProgressProps) {
         </td>
         <td>
           <ToggleableElement>
+
+            <Table>
+            
+            </Table>
+
             <Table hover bordered>
               <thead>
                 <tr>

@@ -21,4 +21,15 @@ module.exports = function(app) {
       },
     })
   );
+  app.use(
+    '/ws_api/pdarena/',
+    createProxyMiddleware({
+      target: 'http://127.0.0.1:8080',
+      changeOrigin: true,
+      ws: true,
+      pathRewrite: {
+        '^/ws_api/pdarena': '/public_ws', // rewrite path
+      },
+    })
+  );
 };
