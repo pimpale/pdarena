@@ -11,6 +11,7 @@ use auth_service_api::client::AuthService;
 use std::convert::Infallible;
 use std::future::Future;
 use warp::http::StatusCode;
+use warp::ws::WebSocket;
 use warp::Filter;
 
 /// Helper to combine the multiple filters together with Filter::or, possibly boxing the types in
@@ -97,6 +98,14 @@ pub fn api(
             run_code_service.clone(),
             warp::path!("public" / "match_resolution" / "view"),
             handlers::match_resolution_view,
+        ),
+        ws_adapter(
+            config.clone(),
+            db.clone(),
+            auth_service.clone(),
+            run_code_service.clone(),
+            warp::path!("public" / "ws" / "match_resolution_lite" / "stream"),
+            handlers::match_resolution_lite_stream,
         )
     )
     .recover(handle_rejection)
@@ -138,12 +147,45 @@ where
         .and(with(auth_service))
         .and(with(run_code_service))
         .and(warp::body::json())
-        .and_then(move |config, db, auth_service, run_code_service, props| async move {
-            handler(config, db, auth_service, run_code_service, props)
-                .await
-                .map_err(app_error)
-        })
+        .and_then(
+            move |config, db, auth_service, run_code_service, props| async move {
+                handler(config, db, auth_service, run_code_service, props)
+                    .await
+                    .map_err(app_error)
+            },
+        )
         .map(|x| warp::reply::json(&x))
+}
+
+// this function adapts a handler function to a warp filter
+// it accepts an initial path filter
+fn ws_adapter<F>(
+    config: Config,
+    db: Db,
+    auth_service: AuthService,
+    run_code_service: RunCodeService,
+    filter: impl Filter<Extract = (), Error = warp::Rejection> + Clone,
+    handler: fn(Config, Db, AuthService, RunCodeService, WebSocket) -> F,
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone
+where
+    F: Future<Output = ()> + Send + 'static,
+{
+    // lets you pass in an arbitrary parameter
+    fn with<T: Clone + Send>(t: T) -> impl Filter<Extract = (T,), Error = Infallible> + Clone {
+        warp::any().map(move || t.clone())
+    }
+
+    filter
+        .and(warp::ws())
+        .and(with(config))
+        .and(with(db))
+        .and(with(auth_service))
+        .and(with(run_code_service))
+        .map(move |ws: warp::ws::Ws, config, db, auth_service, run_code_service| {
+            ws.on_upgrade(move |websocket| {
+                handler(config, db, auth_service, run_code_service, websocket)
+            })
+        })
 }
 
 // This function receives a `Rejection` and tries to return a custom
@@ -178,10 +220,7 @@ async fn handle_rejection(err: warp::Rejection) -> Result<impl warp::Reply, Infa
         message = AppError::Unknown;
     }
 
-    Ok(warp::reply::with_status(
-        warp::reply::json(&message),
-        code,
-    ))
+    Ok(warp::reply::with_status(warp::reply::json(&message), code))
 }
 
 // This type represents errors that we can generate

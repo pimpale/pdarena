@@ -1,10 +1,8 @@
+#![feature(try_blocks)]
 use clap::Parser;
 use std::error::Error;
-use std::sync::Arc;
-use tokio_postgres::{Client, NoTls};
+use std::str::FromStr;
 use warp::Filter;
-
-use tokio::sync::Mutex;
 
 mod utils;
 
@@ -48,12 +46,13 @@ struct Opts {
 #[derive(Clone)]
 pub struct Config {
     pub site_external_url: String,
+    pub database_url: String,
 }
 
-pub type Db = Arc<Mutex<Client>>;
+pub type Db = deadpool_postgres::Pool;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), ()> {
     let Opts {
         database_url,
         site_external_url,
@@ -62,29 +61,32 @@ async fn main() {
         port,
     } = Opts::parse();
 
-    let (client, connection) = loop {
-        match tokio_postgres::connect(&database_url, NoTls).await {
-            Ok(v) => break v,
-            Err(e) => utils::log(utils::Event {
+    let postgres_config = tokio_postgres::Config::from_str(&database_url).map_err(|e| {
+        utils::log(utils::Event {
+            msg: e.to_string(),
+            source: e.source().map(|x| x.to_string()),
+            severity: utils::SeverityKind::Fatal,
+        })
+    })?;
+
+    let mgr = deadpool_postgres::Manager::from_config(
+        postgres_config,
+        tokio_postgres::NoTls,
+        deadpool_postgres::ManagerConfig {
+            recycling_method: deadpool_postgres::RecyclingMethod::Fast,
+        },
+    );
+
+    let pool = deadpool_postgres::Pool::builder(mgr)
+        .max_size(16)
+        .build()
+        .map_err(|e| {
+            utils::log(utils::Event {
                 msg: e.to_string(),
                 source: e.source().map(|x| x.to_string()),
-                severity: utils::SeverityKind::Error,
-            }),
-        }
-
-        // sleep for 5 seconds
-        std::thread::sleep(std::time::Duration::from_secs(5));
-    };
-
-    // The connection object performs the actual communication with the database,
-    // so spawn it off to run on its own.
-    tokio::spawn(async move {
-        if let Err(e) = connection.await {
-            eprintln!("connection error: {}", e);
-        }
-    });
-
-    let db: Db = Arc::new(Mutex::new(client));
+                severity: utils::SeverityKind::Fatal,
+            })
+        })?;
 
     // open connection to auth service
     let auth_service = AuthService::new(&auth_service_url).await;
@@ -102,11 +104,13 @@ async fn main() {
     });
 
     let api = api::api(
-        Config { site_external_url },
-        db,
+        Config { site_external_url, database_url},
+        pool,
         auth_service,
         run_code_service,
     );
 
     warp::serve(api.with(log)).run(([0, 0, 0, 0], port)).await;
+
+    return Ok(());
 }

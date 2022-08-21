@@ -106,6 +106,8 @@ pub struct TournamentSubmissionViewProps{
 pub struct MatchResolutionViewProps{
   pub min_creation_time: Option<i64>,
   pub max_creation_time: Option<i64>,
+  pub min_id: Option<i64>,
+  pub max_id: Option<i64>,
   pub match_resolution_id: Option<Vec<i64>>,
   pub submission_id: Option<Vec<i64>>,
   pub opponent_submission_id: Option<Vec<i64>>,

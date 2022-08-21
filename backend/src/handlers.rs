@@ -6,6 +6,8 @@ use super::Db;
 use auth_service_api::client::AuthService;
 use auth_service_api::response::AuthError;
 use auth_service_api::response::User;
+use futures_util::{SinkExt, StreamExt};
+use warp::ws::Message;
 
 use super::request;
 use super::response;
@@ -157,6 +159,21 @@ async fn fill_match_resolution(
     })
 }
 
+async fn fill_match_resolution_lite(
+    _con: &mut tokio_postgres::Client,
+    match_resolution: MatchResolution,
+) -> Result<response::MatchResolutionLite, response::AppError> {
+    Ok(response::MatchResolutionLite {
+        match_resolution_id: match_resolution.match_resolution_id,
+        creation_time: match_resolution.creation_time,
+        submission_id: match_resolution.submission_id,
+        opponent_submission_id: match_resolution.opponent_submission_id,
+        round: match_resolution.round,
+        matchup: match_resolution.matchup,
+        defected: match_resolution.defected,
+    })
+}
+
 pub async fn get_user_if_api_key_valid(
     auth_service: &auth_service_api::client::AuthService,
     api_key: String,
@@ -182,7 +199,7 @@ pub async fn submission_new(
         return Err(response::AppError::SubmissionTooLong);
     }
 
-    let con = &mut *db.lock().await;
+    let con: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
 
     let mut sp = con.transaction().await.map_err(report_postgres_err)?;
 
@@ -319,7 +336,7 @@ async fn execute_match(
     };
 
     // create a match resolution in the case that the run_code callback fails
-    let con = &mut *db.lock().await;
+    let con: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
     let match_resolution = match_resolution_service::add(
         con,
         submission.submission_id,
@@ -353,8 +370,7 @@ pub async fn tournament_new(
         return Err(AppError::TournamentDataNMatchupsInvalid);
     }
 
-
-    let con = &mut *db.lock().await;
+    let con: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
 
     let mut sp = con.transaction().await.map_err(report_postgres_err)?;
 
@@ -404,7 +420,7 @@ pub async fn tournament_data_new(
         return Err(AppError::TournamentDataTooManyMatches);
     }
 
-    let con = &mut *db.lock().await;
+    let con: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
 
     let mut sp = con.transaction().await.map_err(report_postgres_err)?;
 
@@ -448,7 +464,7 @@ pub async fn tournament_submission_new(
     // validate api key
     let user = get_user_if_api_key_valid(&auth_service, props.api_key).await?;
 
-    let con = &mut *db.lock().await;
+    let con: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
 
     let mut sp = con.transaction().await.map_err(report_postgres_err)?;
 
@@ -687,7 +703,7 @@ pub async fn submission_view(
     // validate api key
     let user = get_user_if_api_key_valid(&auth_service, props.api_key.clone()).await?;
 
-    let con = &mut *db.lock().await;
+    let con: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
     // get users
     let submissions = submission_service::query(con, props)
         .await
@@ -712,7 +728,7 @@ pub async fn tournament_data_view(
     _run_code_service: RunCodeService,
     props: request::TournamentDataViewProps,
 ) -> Result<Vec<response::TournamentData>, response::AppError> {
-    let con = &mut *db.lock().await;
+    let con: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
     // get users
     let tournament_data = tournament_data_service::query(con, props)
         .await
@@ -734,7 +750,7 @@ pub async fn tournament_submission_view(
     _run_code_service: RunCodeService,
     props: request::TournamentSubmissionViewProps,
 ) -> Result<Vec<response::TournamentSubmission>, response::AppError> {
-    let con = &mut *db.lock().await;
+    let con: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
     // get users
     let tournament_submission = tournament_submission_service::query(con, props)
         .await
@@ -756,7 +772,7 @@ pub async fn match_resolution_view(
     _run_code_service: RunCodeService,
     props: request::MatchResolutionViewProps,
 ) -> Result<Vec<response::MatchResolution>, response::AppError> {
-    let con = &mut *db.lock().await;
+    let con: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
     // get users
     let match_resolution = match_resolution_service::query(con, props)
         .await
@@ -769,4 +785,77 @@ pub async fn match_resolution_view(
     }
 
     Ok(resp_match_resolutions)
+}
+
+pub async fn match_resolution_lite_stream(
+    config: Config,
+    _db: Db,
+    _auth_service: AuthService,
+    _run_code_service: RunCodeService,
+    websocket: warp::ws::WebSocket,
+) {
+    tokio::pin!(websocket);
+
+    let result: Result<(), response::AppError> = try {
+        let message = websocket
+            .next()
+            .await
+            // socket closed cleanly
+            .ok_or(response::AppError::StreamEndBeforeRequest)?
+            // websocket errored out for some reason
+            .map_err(|_| response::AppError::StreamEndBeforeRequest)?;
+        let message_str = message
+            .to_str()
+            // message wasn't text
+            .map_err(|_| response::AppError::StreamEndBeforeRequest)?;
+
+        let props = serde_json::from_str::<request::MatchResolutionViewProps>(message_str)
+            .map_err(|_| response::AppError::DecodeError)?;
+
+        // need to create a new connection/client pair here
+        let (mut client, connect) =
+            tokio_postgres::connect(&config.database_url, tokio_postgres::NoTls)
+                .await
+                .map_err(report_postgres_err)?;
+
+        // initialize the next novel id to the one specified
+        let mut next_new_id = props.min_id;
+
+        // return match_resolutions
+        loop {
+            // set the max id to the one specified at the end of the loop
+            let mut adjusted_props = props.clone();
+            adjusted_props.min_id = next_new_id;
+            // get data
+            let match_resolution = match_resolution_service::query(&mut client, adjusted_props)
+                .await
+                .map_err(report_postgres_err)?;
+
+            let mut resp_match_resolutions = vec![];
+            for u in match_resolution.into_iter() {
+                resp_match_resolutions.push(fill_match_resolution_lite(&mut client, u).await?);
+            }
+
+            // set the next new id to the largest one retrieved  + 1
+            next_new_id = resp_match_resolutions
+                .iter()
+                .fold(next_new_id, |acc, o| match acc {
+                    Some(current_largest_id) => {
+                        Some(i64::max(current_largest_id, o.match_resolution_id))
+                    }
+                    None => Some(o.match_resolution_id),
+                })
+                .map(|n| n + 1);
+
+            let json_str = serde_json::to_string(&resp_match_resolutions)
+                .expect("serde should have serialized json");
+
+            // try to send array. If it fails then we close the websocket
+            if let Err(_) = websocket.send(Message::text(json_str)).await {
+                break;
+            }
+        }
+
+        return ();
+    };
 }

@@ -51,3 +51,14 @@ pub struct MatchResolution {
     pub stdout: String,
     pub stderr: String,
 }
+
+#[derive(Clone, Debug)]
+pub struct MatchResolutionLite {
+    pub match_resolution_id: i64,
+    pub submission_id: i64,
+    pub opponent_submission_id: i64,
+    pub round: i64,
+    pub matchup: i64,
+    pub creation_time: i64,
+    pub defected: Option<bool>,
+}

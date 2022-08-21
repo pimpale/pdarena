@@ -175,6 +175,7 @@ pub async fn get_defection_history(
 
     Ok(results)
 }
+
 pub async fn query(
     con: &mut impl GenericClient,
     props: super::request::MatchResolutionViewProps,
@@ -184,11 +185,13 @@ pub async fn query(
         "WHERE 1 = 1",
         "AND ($1::bigint   IS NULL OR mr.creation_time >= $1)",
         "AND ($2::bigint   IS NULL OR mr.creation_time <= $2)",
-        "AND ($3::bigint[] IS NULL OR mr.match_resolution_id = ANY($3))",
-        "AND ($4::bigint[] IS NULL OR mr.submission_id = ANY($4))",
-        "AND ($5::bigint[] IS NULL OR mr.opponent_submission_id = ANY($5))",
-        "AND ($6::bigint[] IS NULL OR mr.round = ANY($6))",
-        "AND ($7::bigint[] IS NULL OR mr.matchup = ANY($7))",
+        "AND ($3::bigint   IS NULL OR mr.match_resolution_id >= $3)",
+        "AND ($4::bigint   IS NULL OR mr.match_resolution_id <= $4)",
+        "AND ($5::bigint[] IS NULL OR mr.match_resolution_id = ANY($5))",
+        "AND ($6::bigint[] IS NULL OR mr.submission_id = ANY($6))",
+        "AND ($7::bigint[] IS NULL OR mr.opponent_submission_id = ANY($7))",
+        "AND ($8::bigint[] IS NULL OR mr.round = ANY($8))",
+        "AND ($9::bigint[] IS NULL OR mr.matchup = ANY($9))",
         "ORDER BY mr.match_resolution_id",
     ]
     .join("\n");
@@ -201,6 +204,8 @@ pub async fn query(
             &[
                 &props.min_creation_time,
                 &props.max_creation_time,
+                &props.min_id,
+                &props.max_id,
                 &props.match_resolution_id,
                 &props.submission_id,
                 &props.opponent_submission_id,

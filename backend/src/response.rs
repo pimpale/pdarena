@@ -17,6 +17,7 @@ pub enum AppError {
     TournamentSubmissionTestcaseIncomplete,
     TournamentSubmissionTestcaseFails,
     TournamentArchived,
+    StreamEndBeforeRequest,
     DecodeError,
     MethodNotAllowed,
     InternalServerError,
@@ -80,6 +81,18 @@ pub struct TournamentSubmission {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct MatchResolutionLite {
+    pub match_resolution_id: i64,
+    pub creation_time: i64,
+    pub submission_id: i64,
+    pub opponent_submission_id: i64,
+    pub round: i64,
+    pub matchup: i64,
+    pub defected: Option<bool>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MatchResolution {
     pub match_resolution_id: i64,
     pub creation_time: i64,
@@ -91,6 +104,7 @@ pub struct MatchResolution {
     pub stdout: String,
     pub stderr: String,
 }
+
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
