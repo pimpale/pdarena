@@ -1,8 +1,8 @@
 import React from 'react'
 import { Async, AsyncProps } from 'react-async';
-import { Table } from 'react-bootstrap';
+import { Spinner, Table } from 'react-bootstrap';
 import { Eye } from 'react-bootstrap-icons';
-import { Loader, Link } from '@innexgo/common-react-components';
+import { Link } from '@innexgo/common-react-components';
 import format from 'date-fns/format';
 import { ApiKey, UserData, userDataView } from '@innexgo/frontend-auth-api';
 import { isErr, unwrap } from '@innexgo/frontend-common';
@@ -36,7 +36,11 @@ export const ViewUser = (props: {
 }) => {
   const [expanded, setExpanded] = React.useState(props.expanded);
   return <Async promiseFn={loadUserData} apiKey={props.apiKey} userId={props.userId}>
-    <Async.Pending><Loader /></Async.Pending>
+    <Async.Pending>
+      <Spinner animation="border" role="status">
+        <span className="visually-hidden">Loading...</span>
+      </Spinner>
+    </Async.Pending>
     <Async.Rejected>
       <span className="text-danger">Unable to load user data.</span>
     </Async.Rejected>

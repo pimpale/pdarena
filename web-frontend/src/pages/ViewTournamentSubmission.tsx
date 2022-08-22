@@ -1,8 +1,8 @@
 import React, { CSSProperties } from 'react';
 
-import { Card, Container, Form, Table } from 'react-bootstrap';
+import { Card, Container, Form, Spinner, Table } from 'react-bootstrap';
 import DashboardLayout from '../components/DashboardLayout';
-import { Loader, WidgetWrapper, Link, Section, DisplayModal, Action } from '@innexgo/common-react-components';
+import { WidgetWrapper, Link, Section, DisplayModal, Action } from '@innexgo/common-react-components';
 import ErrorMessage from '../components/ErrorMessage';
 
 import update from 'immutability-helper';
@@ -20,13 +20,12 @@ import { AuthenticatedComponentProps } from '@innexgo/auth-react-components';
 import { Prism as SyntaxHighligher } from 'react-syntax-highlighter';
 import { a11yDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
-import ArchiveTournamentSubmission from '../components/ArchiveTournamentSubmission';
 import SubmitTournamentSubmission from '../components/SubmitTournamentSubmission';
-import EditTournamentSubmission from '../components/EditTournamentSubmission';
 
-import { Pencil as EditIcon, X as DeleteIcon, Eye as ViewIcon, Mailbox as SubmitIcon } from 'react-bootstrap-icons';
+import { Eye as ViewIcon, Mailbox as SubmitIcon } from 'react-bootstrap-icons';
 import { ResolvedTypeReferenceDirectiveWithFailedLookupLocations } from 'typescript';
 import { getBackgroundColor, LookupTable, lookupTableWebsocketGenerator, scoreMatchups } from '../components/CrossTable';
+import ManageTournamentSubmission from '../components/ManageTournamentSubmission';
 
 type ManageTournamentSubmissionPageData = {
   tournamentData: TournamentData,
@@ -238,6 +237,7 @@ function ShowMatchupTable(props: ShowVerifyProgressProps) {
       {inspectedMatchs === null
         ? null
         : <>
+
         </>
       }
     </DisplayModal>
@@ -250,15 +250,7 @@ function ManageTournamentSubmissionPageInner(props:
     setTournamentSubmission: (ts: TournamentSubmission) => void
   }
 ) {
-  const key = new Map<TournamentSubmissionKind, string>([
-    ["VALIDATE", "text-success"],
-    ["COMPETE", "text-primary"],
-    ["CANCEL", "text-secondary"],
-    ["TESTCASE", "text-success"],
-  ]);
 
-  const [showEditTournamentSubmissionModal, setShowEditTournamentSubmissionModal] = React.useState(false);
-  const [showCancelTournamentSubmissionModal, setShowCancelTournamentSubmissionModal] = React.useState(false);
   const [showSubmitTournamentSubmissionModal, setShowSubmitTournamentSubmissionModal] = React.useState(false);
 
   // the websocket
@@ -280,32 +272,15 @@ function ManageTournamentSubmissionPageInner(props:
   }
 
   return <>
-    <Section name={props.tournamentSubmission.name} id="intro">
-      <h5>Status: <span className={key.get(props.tournamentSubmission.kind)}>{props.tournamentSubmission.kind}</span></h5>
-      {props.submission === undefined
-        ? <HiddenCodeCard className='mx-5 mb-5' />
-        : <SyntaxHighligher
-          className="mx-5 mb-5 h-100"
-          showLineNumbers
-          language="python"
-          style={a11yDark}
-          children={props.submission.code} />
-      }
-      <div className="m-3" hidden={props.submission === undefined}>
-        <Action
-          title="Edit"
-          icon={EditIcon}
-          onClick={() => setShowEditTournamentSubmissionModal(true)}
-        />
-        {props.tournamentSubmission.kind === "CANCEL" ? null :
-          <Action
-            title="Delete"
-            icon={DeleteIcon}
-            variant="danger"
-            onClick={() => setShowCancelTournamentSubmissionModal(true)}
-          />
-        }
-      </div>
+    <Section name="View Tournament Submission" id="intro">
+      <ManageTournamentSubmission
+        tournamentSubmission={props.tournamentSubmission}
+        setTournamentSubmission={props.setTournamentSubmission}
+        tournamentData={props.tournamentData}
+        apiKey={props.apiKey}
+        mutable={props.submission !== undefined}
+      />
+
       <p hidden={props.tournamentSubmission.kind !== "VALIDATE"}>
         <b>
           NOTE: your submission is still in validation mode.
@@ -317,34 +292,6 @@ function ManageTournamentSubmissionPageInner(props:
           onClick={() => setShowSubmitTournamentSubmissionModal(true)}
         />
       </p>
-      <DisplayModal
-        title="Edit Tournament Submission"
-        show={showEditTournamentSubmissionModal}
-        onClose={() => setShowEditTournamentSubmissionModal(false)}
-      >
-        <EditTournamentSubmission
-          tournamentSubmission={props.tournamentSubmission}
-          setTournamentSubmission={ts => {
-            props.setTournamentSubmission(ts);
-            setShowEditTournamentSubmissionModal(false);
-          }}
-          apiKey={props.apiKey}
-        />
-      </DisplayModal>
-      <DisplayModal
-        title="Cancel Tournament Submission"
-        show={showCancelTournamentSubmissionModal}
-        onClose={() => setShowCancelTournamentSubmissionModal(false)}
-      >
-        <ArchiveTournamentSubmission
-          tournamentSubmission={props.tournamentSubmission}
-          setTournamentSubmission={ts => {
-            props.setTournamentSubmission(ts);
-            setShowCancelTournamentSubmissionModal(false);
-          }}
-          apiKey={props.apiKey}
-        />
-      </DisplayModal>
       <DisplayModal
         title="Submit Tournament Submission"
         show={showSubmitTournamentSubmissionModal}
@@ -360,16 +307,29 @@ function ManageTournamentSubmissionPageInner(props:
         />
       </DisplayModal>
     </Section>
+    <div className="mt-3 mb-3" />
+    <Section name="Code" id="code">
+      {props.submission === undefined
+        ? <HiddenCodeCard className='mx-4' />
+        : <SyntaxHighligher
+          className="mx-4 h-100"
+          showLineNumbers
+          language="python"
+          style={a11yDark}
+          children={props.submission.code} />
+      }
+    </Section>
+    <div className="mt-3 mb-3" />
     <Section name="Matchups" id="matchups">
-      <div className='d-flex' style={{overflowX: "scroll"}}>
-      <div className="mx-auto">
-        <ShowMatchupTable
-          tournamentData={props.tournamentData}
-          tournamentSubmission={props.tournamentSubmission}
-          tournamentSubmissions={props.tournamentSubmissions}
-          matches={lookupTable}
-        />
-      </div>
+      <div className='d-flex' style={{ overflowX: "scroll" }}>
+        <div className="mx-auto">
+          <ShowMatchupTable
+            tournamentData={props.tournamentData}
+            tournamentSubmission={props.tournamentSubmission}
+            tournamentSubmissions={props.tournamentSubmissions}
+            matches={lookupTable}
+          />
+        </div>
       </div>
     </Section>
   </>
@@ -384,7 +344,11 @@ function ManageTournamentSubmissionPage(props: AuthenticatedComponentProps) {
       <Container fluid className="py-4 px-4">
         <Async promiseFn={loadManageTournamentSubmissionPage} tournamentId={tournamentId} submissionId={submissionId} apiKey={props.apiKey}>{
           ({ setData }) => <>
-            <Async.Pending><Loader /></Async.Pending>
+            <Async.Pending>
+              <Spinner animation="border" role="status">
+                <span className="visually-hidden">Loading...</span>
+              </Spinner>
+            </Async.Pending>
             <Async.Rejected>{e => <ErrorMessage error={e} />}</Async.Rejected>
             <Async.Fulfilled<ManageTournamentSubmissionPageData>>{data =>
               <ManageTournamentSubmissionPageInner

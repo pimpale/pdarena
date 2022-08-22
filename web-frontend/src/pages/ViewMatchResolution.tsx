@@ -1,8 +1,8 @@
 import React from 'react';
 
-import { Card, Container, Form, Table } from 'react-bootstrap';
+import { Card, Container, Form, Spinner, Table } from 'react-bootstrap';
 import DashboardLayout from '../components/DashboardLayout';
-import { Loader, WidgetWrapper, Link, Section, DisplayModal, Action } from '@innexgo/common-react-components';
+import { WidgetWrapper, Link, Section, DisplayModal, Action } from '@innexgo/common-react-components';
 import ErrorMessage from '../components/ErrorMessage';
 
 import update from 'immutability-helper';
@@ -85,7 +85,11 @@ function ManageMatchResolutionPage(props: AuthenticatedComponentProps) {
       <Container fluid className="py-4 px-4">
         <Async promiseFn={loadManageMatchResolutionPage} tournamentId={tournamentId} matchResolutionId={matchResolutionId} apiKey={props.apiKey}>{
           ({ setData }) => <>
-            <Async.Pending><Loader /></Async.Pending>
+            <Async.Pending>
+              <Spinner animation="border" role="status">
+                <span className="visually-hidden">Loading...</span>
+              </Spinner>
+            </Async.Pending>
             <Async.Rejected>{e => <ErrorMessage error={e} />}</Async.Rejected>
             <Async.Fulfilled<ManageMatchResolutionPageData>>{data => <>
               <Section name="Match Resolution Data" id="intro">

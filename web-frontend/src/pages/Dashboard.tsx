@@ -1,7 +1,7 @@
-import { Card, Row, Container, Col } from 'react-bootstrap';
+import { Card, Row, Container, Col, Spinner } from 'react-bootstrap';
 import { Async, AsyncProps } from 'react-async';
 import update from 'immutability-helper';
-import { Section, Loader, AddButton, DisplayModal, } from '@innexgo/common-react-components';
+import { Section, AddButton, DisplayModal, } from '@innexgo/common-react-components';
 import ErrorMessage from '../components/ErrorMessage';
 import ExternalLayout from '../components/ExternalLayout';
 
@@ -75,7 +75,11 @@ function Dashboard(props: AuthenticatedComponentProps) {
       <Section id="tournaments" name="My Tournaments">
         <Async promiseFn={loadData} apiKey={props.apiKey}>
           {({ setData }) => <>
-            <Async.Pending><Loader /></Async.Pending>
+            <Async.Pending>
+              <Spinner animation="border" role="status">
+                <span className="visually-hidden">Loading...</span>
+              </Spinner>
+            </Async.Pending>
             <Async.Rejected>
               {e => <ErrorMessage error={e} />}
             </Async.Rejected>

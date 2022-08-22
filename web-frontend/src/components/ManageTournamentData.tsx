@@ -1,6 +1,6 @@
 import React from 'react';
-import { Form, Button, Table } from 'react-bootstrap';
-import { Loader, Action, DisplayModal} from '@innexgo/common-react-components';
+import { Form, Button, Table} from 'react-bootstrap';
+import { Action, DisplayModal} from '@innexgo/common-react-components';
 import { Async, AsyncProps } from 'react-async';
 import { tournamentDataView, tournamentDataNew, TournamentData, } from '../utils/api';
 import { ViewUser } from '../components/ViewData';

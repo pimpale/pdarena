@@ -1,6 +1,6 @@
-import { Alert, Button, Card, Container, Form, Table } from 'react-bootstrap';
+import { Alert, Button, Card, Container, Form, Spinner, Table } from 'react-bootstrap';
 import DashboardLayout from '../components/DashboardLayout';
-import { Loader, WidgetWrapper, Link, Section } from '@innexgo/common-react-components';
+import { WidgetWrapper, Link, Section } from '@innexgo/common-react-components';
 import ManageTournamentData from '../components/ManageTournamentData';
 import ErrorMessage from '../components/ErrorMessage';
 
@@ -82,7 +82,11 @@ function ManageTournamentPageInner(props: {
         <span>WebSocket connection failed!</span>
         {
           ws?.readyState === WebSocket.CONNECTING
-            ? <div className='ms-auto'><Loader /></div>
+            ? <div className='ms-auto'>
+              <Spinner animation="border" role="status">
+                <span className="visually-hidden">Loading...</span>
+              </Spinner>
+            </div>
             : <Button
               variant="outline-danger"
               className='ms-auto'
@@ -142,7 +146,11 @@ function ManageTournamentPage(props: AuthenticatedComponentProps) {
       <Container fluid className="py-4 px-4">
         <Async promiseFn={loadManageTournamentPage} tournamentId={tournamentId} apiKey={props.apiKey}>{
           ({ setData }) => <>
-            <Async.Pending><Loader /></Async.Pending>
+            <Async.Pending>
+              <Spinner animation="border" role="status">
+                <span className="visually-hidden">Loading...</span>
+              </Spinner>
+            </Async.Pending>
             <Async.Rejected>{e => <ErrorMessage error={e} />}</Async.Rejected>
             <Async.Fulfilled<ManageTournamentPageData>>{data =>
               <ManageTournamentPageInner
