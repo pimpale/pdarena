@@ -1,13 +1,10 @@
-use crate::run_code::RunCodeService;
+use crate::AppData;
 
 use super::handlers;
 use super::response;
 use super::response::AppError;
 use super::utils;
-use super::Config;
-use super::Db;
 use super::SERVICE_NAME;
-use auth_service_api::client::AuthService;
 use std::convert::Infallible;
 use std::future::Future;
 use warp::http::StatusCode;
@@ -26,92 +23,57 @@ macro_rules! combine {
 }
 
 /// The function that will show all ones to call
-pub fn api(
-    config: Config,
-    db: Db,
-    auth_service: AuthService,
-    run_code_service: RunCodeService,
-) -> impl Filter<Extract = impl warp::Reply, Error = Infallible> + Clone {
+pub fn api(app_data:AppData) -> impl Filter<Extract = impl warp::Reply, Error = Infallible> + Clone {
     // public API
     combine!(
         api_info(),
         adapter(
-            config.clone(),
-            db.clone(),
-            auth_service.clone(),
-            run_code_service.clone(),
+            app_data.clone(),
             warp::path!("public" / "submission" / "new"),
             handlers::submission_new,
         ),
         adapter(
-            config.clone(),
-            db.clone(),
-            auth_service.clone(),
-            run_code_service.clone(),
+            app_data.clone(),
             warp::path!("public" / "tournament" / "new"),
             handlers::tournament_new,
         ),
         adapter(
-            config.clone(),
-            db.clone(),
-            auth_service.clone(),
-            run_code_service.clone(),
+            app_data.clone(),
             warp::path!("public" / "tournament_data" / "new"),
             handlers::tournament_data_new,
         ),
         adapter(
-            config.clone(),
-            db.clone(),
-            auth_service.clone(),
-            run_code_service.clone(),
+            app_data.clone(),
             warp::path!("public" / "tournament_submission" / "new"),
             handlers::tournament_submission_new,
         ),
         adapter(
-            config.clone(),
-            db.clone(),
-            auth_service.clone(),
-            run_code_service.clone(),
+            app_data.clone(),
             warp::path!("public" / "submission" / "view"),
             handlers::submission_view,
         ),
         adapter(
-            config.clone(),
-            db.clone(),
-            auth_service.clone(),
-            run_code_service.clone(),
+            app_data.clone(),
             warp::path!("public" / "tournament_data" / "view"),
             handlers::tournament_data_view,
         ),
         adapter(
-            config.clone(),
-            db.clone(),
-            auth_service.clone(),
-            run_code_service.clone(),
+            app_data.clone(),
             warp::path!("public" / "tournament_submission" / "view"),
             handlers::tournament_submission_view,
         ),
         adapter(
-            config.clone(),
-            db.clone(),
-            auth_service.clone(),
-            run_code_service.clone(),
+            app_data.clone(),
             warp::path!("public" / "match_resolution" / "view"),
             handlers::match_resolution_view,
         ),
         ws_adapter(
-            config.clone(),
-            db.clone(),
-            auth_service.clone(),
-            run_code_service.clone(),
+            app_data.clone(),
             warp::path!("public" / "ws" / "match_resolution_lite" / "stream"),
             handlers::match_resolution_lite_stream,
         ),
         ws_adapter(
-            config.clone(),
-            db.clone(),
-            auth_service.clone(),
-            run_code_service.clone(),
+            app_data.clone(),
             warp::path!("public" / "ws" / "tournament_submission" / "stream"),
             handlers::tournament_submission_stream,
         )
@@ -132,12 +94,9 @@ fn api_info() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Reject
 // this function adapts a handler function to a warp filter
 // it accepts an initial path filter
 fn adapter<PropsType, ResponseType, F>(
-    config: Config,
-    db: Db,
-    auth_service: AuthService,
-    run_code_service: RunCodeService,
+    app_data: AppData,
     filter: impl Filter<Extract = (), Error = warp::Rejection> + Clone,
-    handler: fn(Config, Db, AuthService, RunCodeService, PropsType) -> F,
+    handler: fn(AppData, PropsType) -> F,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone
 where
     F: Future<Output = Result<ResponseType, AppError>> + Send,
@@ -150,14 +109,11 @@ where
     }
 
     filter
-        .and(with(config))
-        .and(with(db))
-        .and(with(auth_service))
-        .and(with(run_code_service))
+        .and(with(app_data))
         .and(warp::body::json())
         .and_then(
-            move |config, db, auth_service, run_code_service, props| async move {
-                handler(config, db, auth_service, run_code_service, props)
+            move |app_data, props| async move {
+                handler(app_data, props)
                     .await
                     .map_err(app_error)
             },
@@ -168,12 +124,9 @@ where
 // this function adapts a handler function to a warp filter
 // it accepts an initial path filter
 fn ws_adapter<F>(
-    config: Config,
-    db: Db,
-    auth_service: AuthService,
-    run_code_service: RunCodeService,
+    app_data: AppData,
     filter: impl Filter<Extract = (), Error = warp::Rejection> + Clone,
-    handler: fn(Config, Db, AuthService, RunCodeService, WebSocket) -> F,
+    handler: fn(AppData, WebSocket) -> F,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone
 where
     F: Future<Output = ()> + Send + 'static,
@@ -185,14 +138,10 @@ where
 
     filter
         .and(warp::ws())
-        .and(with(config))
-        .and(with(db))
-        .and(with(auth_service))
-        .and(with(run_code_service))
-        .map(move |ws: warp::ws::Ws, config, db, auth_service, run_code_service| {
-    println!("WEBSOCKET THING!");
+        .and(with(app_data))
+        .map(move |ws: warp::ws::Ws, app_data| {
             ws.on_upgrade(move |websocket| {
-                handler(config, db, auth_service, run_code_service, websocket)
+                handler(app_data, websocket)
             })
         })
 }

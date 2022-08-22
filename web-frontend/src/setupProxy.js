@@ -21,7 +21,6 @@ module.exports = function(app) {
       pathRewrite: {'^/api/pdarena_ws/': ''},
       ws: true,
       target: 'ws://127.0.0.1:8080/public/ws/',
-      logger: console,
     })
   );
 };

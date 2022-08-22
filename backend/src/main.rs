@@ -1,8 +1,13 @@
 #![feature(try_blocks)]
 use clap::Parser;
+use run_code::RunCodeService;
 use std::error::Error;
 use std::str::FromStr;
 use warp::Filter;
+
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use tokio::sync::mpsc::UnboundedSender;
 
 mod utils;
 
@@ -43,13 +48,20 @@ struct Opts {
     port: u16,
 }
 
+pub type Db = deadpool_postgres::Pool;
+
+pub type SharedNotifyQueue = Arc<Mutex<Vec<UnboundedSender<()>>>>;
+
 #[derive(Clone)]
-pub struct Config {
+pub struct AppData {
+    pub db: Db,
     pub site_external_url: String,
     pub database_url: String,
+    pub match_resolution_inserted: SharedNotifyQueue,
+    pub tournament_submission_inserted: SharedNotifyQueue,
+    pub auth_service: AuthService,
+    pub run_code_service: RunCodeService,
 }
-
-pub type Db = deadpool_postgres::Pool;
 
 #[tokio::main]
 async fn main() -> Result<(), ()> {
@@ -103,12 +115,17 @@ async fn main() -> Result<(), ()> {
         });
     });
 
-    let api = api::api(
-        Config { site_external_url, database_url},
-        pool,
+    let data = AppData {
+        site_external_url,
+        database_url,
+        db: pool,
+        match_resolution_inserted: Arc::new(Mutex::new(vec![])),
+        tournament_submission_inserted: Arc::new(Mutex::new(vec![])),
         auth_service,
         run_code_service,
-    );
+    };
+
+    let api = api::api(data);
 
     warp::serve(api.with(log)).run(([0, 0, 0, 0], port)).await;
 
