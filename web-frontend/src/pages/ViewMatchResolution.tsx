@@ -19,7 +19,6 @@ import { AuthenticatedComponentProps } from '@innexgo/auth-react-components';
 import { Prism as SyntaxHighligher } from 'react-syntax-highlighter';
 import { a11yDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
-import { score } from '../utils/scoring';
 import ManageMatchResolution from '../components/ManageMatchResolution';
 
 type ManageMatchResolutionPageData = {

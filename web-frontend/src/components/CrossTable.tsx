@@ -1,5 +1,31 @@
 import { MatchResolution, MatchResolutionLite, Tournament, TournamentData, TournamentSubmission } from "../utils/api"
-import { score } from "../utils/scoring";
+import {  scorePrisonersDilemma } from "../utils/scoring";
+
+import update from 'immutability-helper';
+
+export function lookupTableWebsocketGenerator(setLookupTable: (f: ((l: LookupTable) => LookupTable)) => void) {
+  return function(msg: MessageEvent<string>) {
+    // get match resolution lite
+    const mrls: MatchResolutionLite[] = JSON.parse(msg.data);
+    // set lookup table with data given
+    setLookupTable(state => {
+      let ba = state;
+      for (const mrl of mrls) {
+        ba = update(ba, {
+          [mrl.submissionId]: x => update(x ?? new Map(), {
+            [mrl.opponentSubmissionId]: y => update(y ?? new Map(), {
+              [mrl.matchup]: z => update(z ?? new Map(), {
+                [mrl.round]: { $set: mrl }
+              })
+            })
+          })
+        });
+      }
+      return ba;
+    });
+  }
+}
+
 
 export type LookupTable =
   // Submission Id
@@ -16,10 +42,18 @@ export type LookupTable =
     >
   >;
 
+
+export type Entry = {
+  score?: number,
+  submission?: MatchResolutionLite,
+  opponent?: MatchResolutionLite,
+}
+
 export type MatchupResult = {
-  entries: Array<Array<number | undefined>>,
+  entries: Array<Array<Entry>>,
   avgScore: number,
   disqualified: boolean,
+  nEntries: number,
 }
 
 export function scoreMatchups(
@@ -31,29 +65,35 @@ export function scoreMatchups(
   const reg = matches.get(submission.submissionId)?.get(opponentSubmission.submissionId);
   const rev = matches.get(opponentSubmission.submissionId)?.get(submission.submissionId);
 
-  const entries: Array<Array<number | undefined>> = [];
+  const entries: Array<Array<Entry>> = [];
   for (let matchup = 0; matchup < tournamentData.nMatchups; matchup++) {
     const reg_matchup = reg?.get(matchup);
     const rev_matchup = rev?.get(matchup);
-    const entry_row: Array<number | undefined> = [];
+    const entry_row: Array<Entry> = [];
     for (let round = 0; round < tournamentData.nRounds; round++) {
-      const submission_defected = reg_matchup?.get(round)?.defected;
-      const opponent_defected = rev_matchup?.get(round)?.defected;
-      const m_score = typeof submission_defected === 'boolean' && typeof opponent_defected === 'boolean'
-        ? score(submission_defected, opponent_defected)
+      const submission = reg_matchup?.get(round);
+      const opponent = rev_matchup?.get(round);
+      const submission_defected = submission?.defected;
+      const opponent_defected = opponent?.defected;
+      const score = typeof submission_defected === 'boolean' && typeof opponent_defected === 'boolean'
+        ? scorePrisonersDilemma(submission_defected, opponent_defected)
         : undefined;
-      entry_row.push(m_score)
+      entry_row.push({
+        score,
+        submission,
+        opponent,
+      })
     }
     entries.push(entry_row);
   }
 
   // disqualified if we have missing entries
-  const disqualified = entries.some(row => row.some(m_score => m_score === undefined));
+  const disqualified = entries.some(row => row.some(e => e.score === undefined));
 
-  const scores = entries.flat().filter(m_score => m_score !== undefined).map(m_score => m_score || 0);
+  const scores = entries.flat().filter(e => e.score !== undefined).map(e => e.score || 0);
   const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
 
-  return { entries, avgScore, disqualified }
+  return { entries, avgScore, disqualified, nEntries: scores.length }
 }
 
 export function scoreEntries(
@@ -143,7 +183,7 @@ function CrossTable(props: CrossTableProps) {
   </table>
 }
 
-function getBackgroundColor(score: number) {
+export function getBackgroundColor(score: number) {
   const greenContent = 255 * (score / 10);
   const redContent = 255 * (1 - score / 10);
   return `rgba(${redContent}, ${greenContent}, 0, 1)`;

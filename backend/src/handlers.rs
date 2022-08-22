@@ -896,6 +896,7 @@ pub async fn match_resolution_lite_stream(
     _run_code_service: RunCodeService,
     websocket: warp::ws::WebSocket,
 ) {
+    println!("GOT HERE");
     tokio::pin!(websocket);
 
     let result: Result<(), response::AppError> = try {

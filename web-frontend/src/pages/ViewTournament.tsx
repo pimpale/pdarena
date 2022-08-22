@@ -15,7 +15,7 @@ import { MatchResolution, MatchResolutionLite, matchResolutionLiteStream, matchR
 import { ApiKey } from '@innexgo/frontend-auth-api';
 import { AuthenticatedComponentProps } from '@innexgo/auth-react-components';
 import ManageTournamentSubmissionsTournament from '../components/ManageTournamentSubmissionTournament';
-import CrossTable, { LookupTable } from '../components/CrossTable';
+import CrossTable, { LookupTable, lookupTableWebsocketGenerator } from '../components/CrossTable';
 import React from 'react';
 
 type ManageTournamentPageData = {
@@ -57,26 +57,10 @@ function ManageTournamentPageInner(props: {
   // the websocket
   const [ws, setWs] = React.useState<WebSocket | undefined>(undefined);
   // whether or not the websocket is closed
-  const [wsClosed, setWsClosed] = React.useState(false);
+  const [wsOk, setWsOk] = React.useState(true);
 
   const [lookupTable, setLookupTable] = React.useState<LookupTable>(new Map());
 
-  function messageEventListener(msg: MessageEvent<string>) {
-    // get match resolution lite
-    const mrl: MatchResolutionLite = JSON.parse(msg.data);
-    // set lookup table with data given
-    setLookupTable(ba =>
-      update(ba, {
-        [mrl.submissionId]: x => update(x ?? new Map(), {
-          [mrl.opponentSubmissionId]: y => update(y ?? new Map(), {
-            [mrl.matchup]: z => update(z ?? new Map(), {
-              [mrl.round]: { $set: mrl }
-            })
-          })
-        })
-      })
-    );
-  }
 
   if (ws === undefined) {
     const new_ws = matchResolutionLiteStream({
@@ -84,27 +68,30 @@ function ManageTournamentPageInner(props: {
       onlyRecent: true,
       apiKey: props.apiKey.key
     });
-    new_ws.addEventListener('message', messageEventListener);
-    new_ws.addEventListener('close', () => setWsClosed(true));
+    new_ws.addEventListener('open', () => setWsOk(true));
+    new_ws.addEventListener('message', lookupTableWebsocketGenerator(setLookupTable));
+    new_ws.addEventListener('error', () => setWsOk(false));
+    new_ws.addEventListener('close', () => setWsOk(false));
     // set ws for next time
     setWs(new_ws);
   }
 
   return <>
-    {wsClosed
-      ? <Alert variant="danger">
-        WebSocket connection failed!
-        <Button
-          variant="outline-danger"
-          className='mr-auto'
-          onClick={() => {
-            setWsClosed(false);
-            setWs(undefined);
-          }}
-          children="Reconnect"
-        />
+    {wsOk
+      ? null
+      : <Alert variant="danger" className='d-flex justify-content-center'>
+        <span>WebSocket connection failed!</span>
+        {
+          ws?.readyState === WebSocket.CONNECTING
+            ? <div className='ms-auto'><Loader /></div>
+            : <Button
+              variant="outline-danger"
+              className='ms-auto'
+              onClick={() => setWs(undefined)}
+              children="Reconnect"
+            />
+        }
       </Alert>
-      : null
     }
     <Section name="Tournament Data" id="intro">
       <div className="my-3">

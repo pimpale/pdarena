@@ -104,7 +104,7 @@ pub fn api(
             db.clone(),
             auth_service.clone(),
             run_code_service.clone(),
-            warp::path!("public_ws" / "match_resolution_lite" / "stream"),
+            warp::path!("public" / "ws" / "match_resolution_lite" / "stream"),
             handlers::match_resolution_lite_stream,
         ),
         ws_adapter(
@@ -112,7 +112,7 @@ pub fn api(
             db.clone(),
             auth_service.clone(),
             run_code_service.clone(),
-            warp::path!("public_ws" / "tournament_submission" / "stream"),
+            warp::path!("public" / "ws" / "tournament_submission" / "stream"),
             handlers::tournament_submission_stream,
         )
     )
@@ -190,6 +190,7 @@ where
         .and(with(auth_service))
         .and(with(run_code_service))
         .map(move |ws: warp::ws::Ws, config, db, auth_service, run_code_service| {
+    println!("WEBSOCKET THING!");
             ws.on_upgrade(move |websocket| {
                 handler(config, db, auth_service, run_code_service, websocket)
             })

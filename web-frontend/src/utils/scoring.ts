@@ -1,4 +1,4 @@
-export function score(submission_defected: boolean, opponent_submission_defected: boolean) {
+export function scorePrisonersDilemma(submission_defected: boolean, opponent_submission_defected: boolean) {
     if(submission_defected) {
         if(opponent_submission_defected) {
             // both defect

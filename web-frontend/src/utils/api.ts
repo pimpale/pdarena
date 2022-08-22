@@ -112,7 +112,7 @@ export type SubmissionNewProps = {
 }
 
 export function submissionNew(props: SubmissionNewProps, server?: string): Promise<Result<Submission, AppErrorCode>> {
-  return fetchApiOrNetworkError(undefToStr(server) + "/pdarena/submission/new", props);
+  return fetchApiOrNetworkError(undefToStr(server) + "pdarena/submission/new", props);
 }
 
 
@@ -125,7 +125,7 @@ export type TournamentNewProps = {
 }
 
 export function tournamentNew(props: TournamentNewProps, server?: string): Promise<Result<TournamentData, AppErrorCode>> {
-  return fetchApiOrNetworkError(undefToStr(server) + "/pdarena/tournament/new", props);
+  return fetchApiOrNetworkError(undefToStr(server) + "pdarena/tournament/new", props);
 }
 
 export type TournamentDataNewProps = {
@@ -139,7 +139,7 @@ export type TournamentDataNewProps = {
 }
 
 export function tournamentDataNew(props: TournamentDataNewProps, server?: string): Promise<Result<TournamentData, AppErrorCode>> {
-  return fetchApiOrNetworkError(undefToStr(server) + "/pdarena/tournament_data/new", props);
+  return fetchApiOrNetworkError(undefToStr(server) + "pdarena/tournament_data/new", props);
 }
 
 
@@ -152,7 +152,7 @@ export type TournamentSubmissionNewProps = {
 }
 
 export function tournamentSubmissionNew(props: TournamentSubmissionNewProps, server?: string): Promise<Result<TournamentSubmission, AppErrorCode>> {
-  return fetchApiOrNetworkError(undefToStr(server) + "/pdarena/tournament_submission/new", props);
+  return fetchApiOrNetworkError(undefToStr(server) + "pdarena/tournament_submission/new", props);
 }
 
 export type SubmissionViewProps = {
@@ -164,7 +164,7 @@ export type SubmissionViewProps = {
 }
 
 export function submissionView(props: SubmissionViewProps, server?: string): Promise<Result<Submission[], AppErrorCode>> {
-  return fetchApiOrNetworkError(undefToStr(server) + "/pdarena/submission/view", props);
+  return fetchApiOrNetworkError(undefToStr(server) + "pdarena/submission/view", props);
 }
 
 
@@ -181,7 +181,7 @@ export type TournamentDataViewProps = {
 }
 
 export function tournamentDataView(props: TournamentDataViewProps, server?: string): Promise<Result<TournamentData[], AppErrorCode>> {
-  return fetchApiOrNetworkError(undefToStr(server) + "/pdarena/tournament_data/view", props);
+  return fetchApiOrNetworkError(undefToStr(server) + "pdarena/tournament_data/view", props);
 }
 
 export type TournamentSubmissionViewProps = {
@@ -197,7 +197,7 @@ export type TournamentSubmissionViewProps = {
 }
 
 export function tournamentSubmissionView(props: TournamentSubmissionViewProps, server?: string): Promise<Result<TournamentSubmission[], AppErrorCode>> {
-  return fetchApiOrNetworkError(undefToStr(server) + "/pdarena/tournament_submission/view", props);
+  return fetchApiOrNetworkError(undefToStr(server) + "pdarena/tournament_submission/view", props);
 }
 
 export type MatchResolutionViewProps = {
@@ -215,16 +215,16 @@ export type MatchResolutionViewProps = {
 }
 
 export function matchResolutionView(props: MatchResolutionViewProps, server?: string): Promise<Result<MatchResolution[], AppErrorCode>> {
-  return fetchApiOrNetworkError(undefToStr(server) + "/pdarena/match_resolution/view", props);
+  return fetchApiOrNetworkError(undefToStr(server) + "pdarena/match_resolution/view", props);
 }
 
 function wsRelativeUrl(relPath: string) {
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-  return `${protocol}://${window.location.host}/${relPath}/ws_api`
+  return `${protocol}://${window.location.host}/api/${relPath}`
 }
 
 export function matchResolutionLiteStream(props: MatchResolutionViewProps, server?: string): WebSocket {
-  const path = "/pdarena/match_resolution_lite/stream";
+  const path = "pdarena_ws/match_resolution_lite/stream";
   const url = server === undefined
     ? wsRelativeUrl(path)
     : server + path;

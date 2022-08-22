@@ -2,34 +2,26 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 
 module.exports = function(app) {
   app.use(
-    '/api/auth',
+    '/api/auth/',
     createProxyMiddleware({
-      target: 'http://127.0.0.1:8079',
-      changeOrigin: true,
-      pathRewrite: {
-        '^/api/auth': '/public', // rewrite path
-      },
+      target: 'http://127.0.0.1:8079/public/',
     })
   );
   app.use(
-    '/api/pdarena',
+    '/api/pdarena/',
     createProxyMiddleware({
-      target: 'http://127.0.0.1:8080',
-      changeOrigin: true,
-      pathRewrite: {
-        '^/api/pdarena': '/public', // rewrite path
-      },
+      target: 'http://127.0.0.1:8080/public/',
     })
   );
+  // WARNING: extrmely weird and buggy ...
+  // breaks a lot
   app.use(
-    '/ws_api/pdarena/',
     createProxyMiddleware({
-      target: 'http://127.0.0.1:8080',
-      changeOrigin: true,
+      pathFilter: '/api/pdarena_ws/',
+      pathRewrite: {'^/api/pdarena_ws/': ''},
       ws: true,
-      pathRewrite: {
-        '^/ws_api/pdarena': '/public_ws', // rewrite path
-      },
+      target: 'ws://127.0.0.1:8080/public/ws/',
+      logger: console,
     })
   );
 };

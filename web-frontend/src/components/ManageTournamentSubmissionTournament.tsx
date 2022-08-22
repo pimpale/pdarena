@@ -7,7 +7,7 @@ import { MatchResolution, TournamentData, TournamentSubmission } from '../utils/
 import { ViewUser } from './ViewData';
 
 import { Eye as ViewIcon } from 'react-bootstrap-icons';
-import { score } from '../utils/scoring';
+import { scorePrisonersDilemma } from '../utils/scoring';
 import { LookupTable, scoreEntries } from './CrossTable';
 
 type ManageTournamentSubmissionRowProps = {
@@ -120,33 +120,34 @@ function ManageTournamentSubmissionsTournament(props: ManageTournamentSubmission
         <th>Actions</th>
       </tr>
     </thead>
-    <tbody>
-      {nonCompetingSubmission.length + scoredCompetingSubmissions.length === 0
+    <tbody>{
+      nonCompetingSubmission.length + scoredCompetingSubmissions.length === 0
         ? <tr><td className="text-center" colSpan={6}>No Submissions or Testcases</td></tr>
-        : <> </>
-      }
-      {scoredCompetingSubmissions
-        .map(({ t, i, s }, j) =>
-          <ManageTournamentSubmissionRow
-            key={i}
-            rankingData={{ rank: j + 1, score: s }}
-            mutable={props.mutable}
-            tournamentSubmission={t}
-            setTournamentSubmission={(t) => props.setTournamentSubmissions(update(props.tournamentSubmissions, { [i]: { $set: t } }))}
-            apiKey={props.apiKey}
-          />
-        )}
-      {nonCompetingSubmission
-        .map(({ t, i }) =>
-          <ManageTournamentSubmissionRow
-            key={i}
-            mutable={props.mutable}
-            tournamentSubmission={t}
-            setTournamentSubmission={(t) => props.setTournamentSubmissions(update(props.tournamentSubmissions, { [i]: { $set: t } }))}
-            apiKey={props.apiKey}
-          />
-        )}
-    </tbody>
+        : null
+    }{
+        scoredCompetingSubmissions
+          .map(({ t, i, s }, j) =>
+            <ManageTournamentSubmissionRow
+              key={i}
+              rankingData={{ rank: j + 1, score: s }}
+              mutable={props.mutable}
+              tournamentSubmission={t}
+              setTournamentSubmission={(t) => props.setTournamentSubmissions(update(props.tournamentSubmissions, { [i]: { $set: t } }))}
+              apiKey={props.apiKey}
+            />
+          )
+      }{
+        nonCompetingSubmission
+          .map(({ t, i }) =>
+            <ManageTournamentSubmissionRow
+              key={i}
+              mutable={props.mutable}
+              tournamentSubmission={t}
+              setTournamentSubmission={(t) => props.setTournamentSubmissions(update(props.tournamentSubmissions, { [i]: { $set: t } }))}
+              apiKey={props.apiKey}
+            />
+          )
+      }</tbody>
   </Table>
 }
 
