@@ -59,8 +59,7 @@ function ManageTournamentPageInner(props: {
   // whether or not the websocket is closed
   const [wsOk, setWsOk] = React.useState(true);
 
-  const [lookupTable, setLookupTable] = React.useState<LookupTable>(new Map());
-
+  const [lookupTable, setLookupTable] = React.useState<LookupTable>([]);
 
   if (ws === undefined) {
     const new_ws = matchResolutionLiteStream({

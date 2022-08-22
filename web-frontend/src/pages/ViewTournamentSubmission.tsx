@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { CSSProperties } from 'react';
 
 import { Card, Container, Form, Table } from 'react-bootstrap';
 import DashboardLayout from '../components/DashboardLayout';
@@ -12,7 +12,7 @@ import { unwrap, getFirstOr } from '@innexgo/frontend-common';
 import format from "date-fns/format";
 
 import { Async, AsyncProps } from 'react-async';
-import { MatchResolution, matchResolutionLiteStream, matchResolutionView, Submission, submissionView, TournamentData, tournamentDataView, TournamentSubmission, TournamentSubmissionKind, tournamentSubmissionView } from '../utils/api';
+import { MatchResolution, MatchResolutionLite, matchResolutionLiteStream, matchResolutionView, Submission, submissionView, TournamentData, tournamentDataView, TournamentSubmission, TournamentSubmissionKind, tournamentSubmissionView } from '../utils/api';
 import { ApiKey } from '@innexgo/frontend-auth-api';
 import { AuthenticatedComponentProps } from '@innexgo/auth-react-components';
 
@@ -110,15 +110,15 @@ type ToggleableElementProps = {
 const ToggleableElement = (props: ToggleableElementProps) => {
   const [expanded, setExpanded] = React.useState(false);
 
-  const expandedStyle = {
-  }
+  const expandedStyle = {}
 
   const opacity = 0.0;
 
-  const compressedStyle = {
-    overflow: "hidden" as const,
+  const compressedStyle: CSSProperties = {
+    overflowY: "hidden" as const,
     maxHeight: "10rem",
-    mask: `linear-gradient(180deg, black, rgba(255, 255, 255, ${opacity})) center bottom/100% 5rem no-repeat, linear-gradient(180deg, black, black) center top/100% calc(100% - 5rem) no-repeat`
+    mask: `linear-gradient(180deg, black, rgba(255, 255, 255, ${opacity})) center bottom/100% 5rem no-repeat, linear-gradient(180deg, black, black) center top/100% calc(100% - 5rem) no-repeat`,
+    WebkitMask: `linear-gradient(180deg, black, rgba(255, 255, 255, ${opacity})) center bottom/100% 5rem no-repeat, linear-gradient(180deg, black, black) center top/100% calc(100% - 5rem) no-repeat`
   }
 
   return <div className='text-center'>
@@ -138,7 +138,7 @@ type ShowVerifyProgressProps = {
 }
 
 function ShowMatchupTable(props: ShowVerifyProgressProps) {
-  const [inspectedMatchs, setInspectedMatchs] = React.useState<[MatchResolution, MatchResolution] | null>(null);
+  const [inspectedMatchs, setInspectedMatchs] = React.useState<[MatchResolutionLite | undefined, MatchResolutionLite | undefined] | null>(null);
 
   const entries = props.tournamentSubmissions
     .map(ts => ({
@@ -151,7 +151,7 @@ function ShowMatchupTable(props: ShowVerifyProgressProps) {
       )
     }));
 
-  return <Table hover bordered>
+  return <Table hover bordered style={{ display: "block", tableLayout: "fixed" }}>
     <thead>
       <tr>
         <th>Opponent</th>
@@ -173,7 +173,8 @@ function ShowMatchupTable(props: ShowVerifyProgressProps) {
           <p>{entry.ms.disqualified
             ? <>
               <b className="text-danger">MATCH DISQUALIFIED</b>
-              <p>(one or more matches failed)</p>
+              <br />
+              <span>(one or more matches failed)</span>
             </>
             : entry.ms.nEntries < props.tournamentData.nRounds * props.tournamentData.nMatchups
               ? <>
@@ -185,34 +186,45 @@ function ShowMatchupTable(props: ShowVerifyProgressProps) {
         </td>
         <td>
           <ToggleableElement>
-            <Table hover bordered>
-              <tr>
-                <td />
-                {
-                  new Array(props.tournamentData.nRounds)
-                    .fill(undefined)
-                    .map((_, i) =>
-                      <th>Round {i}</th>
-                    )
-                }
-              </tr>
-              {entry.ms.entries.map((row, matchup) =>
-                <tr key={matchup}>
-                  <th>Matchup {matchup}</th>
-                  {row.map(({ submission, opponent, score }, round) =>
-                    <td
-                      key={round}
-                      style={{
-                        backgroundColor:
-                          score === undefined
-                            ? undefined
-                            : getBackgroundColor(score)
-                      }}
-                      children={score}
-                    />
-                  )}
+            <Table bordered style={{ tableLayout: "fixed", width: `${9 + 2 * props.tournamentData.nRounds}rem` }}>
+              <colgroup>
+                <col style={{ width: "9rem" }} />
+              </colgroup>
+              <colgroup span={props.tournamentData.nRounds} style={{ width: `${2 * props.tournamentData.nRounds}rem` }} />
+              <tbody>
+                <tr>
+                  <td />
+                  <th colSpan={props.tournamentData.nRounds}>Rounds</th>
                 </tr>
-              )}
+                <tr>
+                  <th>Matchups</th>
+                  {
+                    new Array(props.tournamentData.nRounds)
+                      .fill(undefined)
+                      .map((_, i) =>
+                        <th key={i}>{i}</th>
+                      )
+                  }
+                </tr>
+                {entry.ms.entries.map((row, matchup) =>
+                  <tr key={matchup}>
+                    <th>{matchup}</th>
+                    {row.map(({ submission, opponent, score }, round) =>
+                      <td
+                        key={round}
+                        style={{
+                          backgroundColor:
+                            score === undefined
+                              ? undefined
+                              : getBackgroundColor(score)
+                        }}
+                        children={score}
+                        onClick={() => setInspectedMatchs([submission, opponent])}
+                      />
+                    )}
+                  </tr>
+                )}
+              </tbody>
             </Table>
           </ToggleableElement>
         </td>
@@ -225,37 +237,8 @@ function ShowMatchupTable(props: ShowVerifyProgressProps) {
     >
       {inspectedMatchs === null
         ? null
-        :
-        <div>
-          <h6>Submission Stdout</h6>
-          <div style={{ width: "100%", overflow: "scroll" }}>
-            <SyntaxHighligher
-              showLineNumbers
-              style={a11yDark}
-              children={inspectedMatchs[0].stdout} />
-          </div>
-          <h6>Opponent Stdout</h6>
-          <div style={{ width: "100%", overflow: "scroll" }}>
-            <SyntaxHighligher
-              showLineNumbers
-              style={a11yDark}
-              children={inspectedMatchs[1].stdout} />
-          </div>
-          <h6>Submission Stderr</h6>
-          <div style={{ width: "100%", overflow: "scroll" }}>
-            <SyntaxHighligher
-              showLineNumbers
-              style={a11yDark}
-              children={inspectedMatchs[0].stderr} />
-          </div>
-          <h6>Submission Stderr</h6>
-          <div style={{ width: "100%", overflow: "scroll" }}>
-            <SyntaxHighligher
-              showLineNumbers
-              style={a11yDark}
-              children={inspectedMatchs[1].stderr} />
-          </div>
-        </div>
+        : <>
+        </>
       }
     </DisplayModal>
   </Table>
@@ -282,7 +265,7 @@ function ManageTournamentSubmissionPageInner(props:
   const [ws, setWs] = React.useState<WebSocket | undefined>(undefined);
   // whether or not the websocket is closed
   const [wsClosed, setWsClosed] = React.useState(false);
-  const [lookupTable, setLookupTable] = React.useState<LookupTable>(new Map());
+  const [lookupTable, setLookupTable] = React.useState<LookupTable>([]);
 
   if (ws === undefined) {
     const new_ws = matchResolutionLiteStream({
@@ -378,12 +361,16 @@ function ManageTournamentSubmissionPageInner(props:
       </DisplayModal>
     </Section>
     <Section name="Matchups" id="matchups">
-      <ShowMatchupTable
-        tournamentData={props.tournamentData}
-        tournamentSubmission={props.tournamentSubmission}
-        tournamentSubmissions={props.tournamentSubmissions}
-        matches={lookupTable}
-      />
+      <div className='d-flex' style={{overflowX: "scroll"}}>
+      <div className="mx-auto">
+        <ShowMatchupTable
+          tournamentData={props.tournamentData}
+          tournamentSubmission={props.tournamentSubmission}
+          tournamentSubmissions={props.tournamentSubmissions}
+          matches={lookupTable}
+        />
+      </div>
+      </div>
     </Section>
   </>
 }

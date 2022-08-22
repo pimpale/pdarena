@@ -1,6 +1,7 @@
 use crate::request::TournamentSubmissionKind;
 use crate::response::AppError;
 use crate::run_code::RunCodeService;
+use crate::SharedNotifyQueue;
 
 use super::Db;
 use auth_service_api::response::AuthError;
@@ -221,6 +222,7 @@ pub fn do_battle(
     run_code_service: RunCodeService,
     submission: Submission,
     opponent_submission: Submission,
+    notif_queue: SharedNotifyQueue,
 ) {
     for matchup in 0..n_matchups {
         tokio::task::spawn(do_matchup(
@@ -230,6 +232,7 @@ pub fn do_battle(
             run_code_service.clone(),
             submission.clone(),
             opponent_submission.clone(),
+            notif_queue.clone(),
         ));
     }
 }
@@ -242,6 +245,7 @@ pub async fn do_matchup(
     run_code_service: RunCodeService,
     submission: Submission,
     opponent_submission: Submission,
+    notif_queue: SharedNotifyQueue,
 ) {
     let mut submission_defection_history = vec![];
     let mut opponent_submission_defection_history = vec![];
@@ -255,6 +259,7 @@ pub async fn do_matchup(
             matchup,
             &opponent_submission_defection_history,
             &run_code_service,
+            notif_queue.clone(),
         )
         .await
         .unwrap();
@@ -267,6 +272,7 @@ pub async fn do_matchup(
             matchup,
             &submission_defection_history,
             &run_code_service,
+            notif_queue.clone(),
         )
         .await
         .unwrap();
@@ -284,6 +290,7 @@ async fn execute_match(
     matchup: i64,
     opponent_defection_history: &Vec<Option<bool>>,
     run_code_service: &RunCodeService,
+    notif_queue: SharedNotifyQueue,
 ) -> Result<MatchResolution, AppError> {
     let opponent_defection_history_str = opponent_defection_history
         .into_iter()
@@ -349,10 +356,14 @@ async fn execute_match(
     .await
     .map_err(report_postgres_err)?;
 
-    // mark done
-    con.execute("notify match_resolution, 'insert'", &[])
+    // send to each queue in queue list, dropping queues that are dead
+    notif_queue
+        .lock()
         .await
-        .map_err(report_postgres_err)?;
+        .retain(|sender| match sender.send(()) {
+            Ok(()) => true,
+            Err(_) => false,
+        });
 
     Ok(match_resolution)
 }
@@ -461,6 +472,7 @@ pub async fn tournament_submission_new(
         db,
         auth_service,
         run_code_service,
+        match_resolution_inserted,
         ..
     }: AppData,
     props: request::TournamentSubmissionNewProps,
@@ -535,6 +547,7 @@ pub async fn tournament_submission_new(
                         run_code_service.clone(),
                         submission.clone(),
                         opponent_submission,
+                        match_resolution_inserted.clone(),
                     );
                 }
             }
@@ -626,6 +639,7 @@ pub async fn tournament_submission_new(
                         run_code_service.clone(),
                         submission.clone(),
                         opponent_submission,
+                        match_resolution_inserted.clone(),
                     );
                 }
 
@@ -637,6 +651,7 @@ pub async fn tournament_submission_new(
                     run_code_service.clone(),
                     submission.clone(),
                     submission.clone(),
+                    match_resolution_inserted.clone(),
                 );
             }
         }
@@ -671,6 +686,7 @@ pub async fn tournament_submission_new(
                     run_code_service.clone(),
                     submission.clone(),
                     opponent_submission,
+                    match_resolution_inserted.clone(),
                 );
             }
         }
@@ -799,7 +815,10 @@ pub async fn tournament_submission_stream(
     tokio::pin!(websocket);
 
     // create multi-producer single consumer pair
-    let (send, recv) = unbounded_channel();
+    let (send, mut recv) = unbounded_channel();
+
+    // push 1 notif inside the queue immediately (so that loop runs)
+    send.send(()).unwrap();
 
     // push sending end into array
     match_resolution_inserted.lock().await.push(send);
@@ -821,56 +840,38 @@ pub async fn tournament_submission_stream(
             .map_err(|_| response::AppError::DecodeError)?;
 
         // initialize the next novel id to the one specified
-        let mut next_new_id = props.min_id;
+        let mut next_new_id = props.min_id.unwrap_or(0);
 
         // return tournament_submissions
-        while let Some(db_notif) = recv.recv().await {
-            match db_notif {
-                Ok(AsyncMessage::Notification(notification))
-                    if notification.payload() == "insert" =>
-                {
-                    // set the max id to the one specified at the end of the loop
-                    let mut adjusted_props = props.clone();
-                    adjusted_props.min_id = next_new_id;
-                    // get data
-                    let tournament_submission =
-                        tournament_submission_service::query(&mut client, adjusted_props)
-                            .await
-                            .map_err(report_postgres_err)?;
+        'recv_loop: while let Some(()) = recv.recv().await {
+            let client: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
 
-                    let mut resp_tournament_submissions = vec![];
-                    for u in tournament_submission.into_iter() {
-                        resp_tournament_submissions
-                            .push(fill_tournament_submission(&mut client, u).await?);
-                    }
+            // set the max id to the one specified at the end of the loop
+            let mut adjusted_props = props.clone();
+            adjusted_props.min_id = Some(next_new_id);
 
-                    // set the next new id to the largest one retrieved  + 1
-                    next_new_id = resp_tournament_submissions
-                        .iter()
-                        .fold(next_new_id, |acc, o| match acc {
-                            Some(current_largest_id) => {
-                                Some(i64::max(current_largest_id, o.tournament_submission_id))
-                            }
-                            None => Some(o.tournament_submission_id),
-                        })
-                        .map(|n| n + 1);
+            // get data
+            let tournament_submission =
+                tournament_submission_service::query(&mut *client, adjusted_props)
+                    .await
+                    .map_err(report_postgres_err)?;
 
-                    // if we have more than an empty array
-                    if resp_tournament_submissions.len() > 0 {
-                        let json_str = serde_json::to_string(&resp_tournament_submissions)
-                            .expect("serde should have serialized json");
-
-                        // try to send array. If it fails then we close the websocket
-                        if let Err(_) = websocket.send(Message::text(json_str)).await {
-                            break;
-                        }
-                    }
+            for u in tournament_submission.into_iter() {
+                if u.tournament_submission_id > next_new_id {
+                    next_new_id = u.tournament_submission_id;
                 }
-                // do nothing for other notifications
-                Ok(_) => (),
-                Err(e) => Err(report_postgres_err(e))?,
-            };
+
+                let json_str =
+                    serde_json::to_string(&fill_tournament_submission(&mut *client, u).await?)
+                        .expect("serde should have serialized json");
+
+                // try to send array. If it fails then we close the websocket
+                if let Err(_) = websocket.send(Message::text(json_str)).await {
+                    break 'recv_loop;
+                }
+            }
         }
+
         return ();
     };
 }
@@ -887,7 +888,10 @@ pub async fn match_resolution_lite_stream(
     tokio::pin!(websocket);
 
     // create multi-producer single consumer pair
-    let (send, recv) = unbounded_channel();
+    let (send, mut recv) = unbounded_channel();
+
+    // push 1 notif inside the queue immediately (so that loop runs)
+    send.send(()).unwrap();
 
     // push sending end into array
     match_resolution_inserted.lock().await.push(send);
@@ -912,43 +916,32 @@ pub async fn match_resolution_lite_stream(
         // validate that api key is valid
 
         // initialize the next novel id to the one specified
-        let mut next_new_id = props.min_id;
+        let mut next_new_id = props.min_id.unwrap_or(0);
 
         // return match_resolutions
-        while let Some(()) = recv.recv().await {
-            println!("INSERT NOTIF RECIEVED");
+        'recv_loop: while let Some(()) = recv.recv().await {
+            let client: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
+
             // set the max id to the one specified at the end of the loop
             let mut adjusted_props = props.clone();
-            adjusted_props.min_id = next_new_id;
+            adjusted_props.min_id = Some(next_new_id);
             // get data
-            let match_resolution = match_resolution_service::query(&mut client, adjusted_props)
+            let match_resolution = match_resolution_service::query(&mut *client, adjusted_props)
                 .await
                 .map_err(report_postgres_err)?;
 
-            let mut resp_match_resolutions = vec![];
             for u in match_resolution.into_iter() {
-                resp_match_resolutions.push(fill_match_resolution_lite(&mut client, u).await?);
-            }
+                if u.match_resolution_id > next_new_id {
+                    next_new_id = u.match_resolution_id;
+                }
 
-            // set the next new id to the largest one retrieved  + 1
-            next_new_id = resp_match_resolutions
-                .iter()
-                .fold(next_new_id, |acc, o| match acc {
-                    Some(current_largest_id) => {
-                        Some(i64::max(current_largest_id, o.match_resolution_id))
-                    }
-                    None => Some(o.match_resolution_id),
-                })
-                .map(|n| n + 1);
-
-            // if we have more than an empty array
-            if resp_match_resolutions.len() > 0 {
-                let json_str = serde_json::to_string(&resp_match_resolutions)
-                    .expect("serde should have serialized json");
+                let json_str =
+                    serde_json::to_string(&fill_match_resolution_lite(&mut *client, u).await?)
+                        .expect("serde should have serialized json");
 
                 // try to send array. If it fails then we close the websocket
                 if let Err(_) = websocket.send(Message::text(json_str)).await {
-                    break;
+                    break 'recv_loop;
                 }
             }
         }

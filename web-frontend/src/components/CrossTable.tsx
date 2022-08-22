@@ -1,41 +1,49 @@
 import { MatchResolution, MatchResolutionLite, Tournament, TournamentData, TournamentSubmission } from "../utils/api"
-import {  scorePrisonersDilemma } from "../utils/scoring";
+import { scorePrisonersDilemma } from "../utils/scoring";
 
 import update from 'immutability-helper';
+
+
+// ba = update(ba, {
+//   [mrl.submissionId]: x => update(x ?? new Map(), {
+//     [mrl.opponentSubmissionId]: y => update(y ?? new Map(), {
+//       [mrl.matchup]: z => update(z ?? new Map(), {
+//         [mrl.round]: { $set: mrl }
+//       })
+//     })
+//   })
+// });
+
 
 export function lookupTableWebsocketGenerator(setLookupTable: (f: ((l: LookupTable) => LookupTable)) => void) {
   return function(msg: MessageEvent<string>) {
     // get match resolution lite
-    const mrls: MatchResolutionLite[] = JSON.parse(msg.data);
+    const mrl: MatchResolutionLite = JSON.parse(msg.data);
     // set lookup table with data given
-    setLookupTable(state => {
-      let ba = state;
-      for (const mrl of mrls) {
-        ba = update(ba, {
-          [mrl.submissionId]: x => update(x ?? new Map(), {
-            [mrl.opponentSubmissionId]: y => update(y ?? new Map(), {
-              [mrl.matchup]: z => update(z ?? new Map(), {
-                [mrl.round]: { $set: mrl }
-              })
+    setLookupTable(state =>
+      update(state, {
+        [mrl.submissionId]: x => update(x ?? [], {
+          [mrl.opponentSubmissionId]: y => update(y ?? [], {
+            [mrl.matchup]: z => update(z ?? [], {
+              [mrl.round]: { $set: mrl }
             })
           })
-        });
-      }
-      return ba;
-    });
+        })
+      })
+    );
   }
 }
 
 
 export type LookupTable =
   // Submission Id
-  Map<number,
+  Array<
     // Opponent Submission Id
-    Map<number,
+    Array<
       // by matchup id
-      Map<number,
+      Array<
         // by round id
-        Map<number,
+        Array<
           MatchResolutionLite
         >
       >
@@ -62,17 +70,18 @@ export function scoreMatchups(
   submission: TournamentSubmission,
   opponentSubmission: TournamentSubmission,
 ): MatchupResult {
-  const reg = matches.get(submission.submissionId)?.get(opponentSubmission.submissionId);
-  const rev = matches.get(opponentSubmission.submissionId)?.get(submission.submissionId);
+  const reg = matches[submission.submissionId]?.[opponentSubmission.submissionId];
+  const rev = matches[opponentSubmission.submissionId]?.[submission.submissionId];
+
 
   const entries: Array<Array<Entry>> = [];
   for (let matchup = 0; matchup < tournamentData.nMatchups; matchup++) {
-    const reg_matchup = reg?.get(matchup);
-    const rev_matchup = rev?.get(matchup);
+    const reg_matchup = reg?.[matchup];
+    const rev_matchup = rev?.[matchup];
     const entry_row: Array<Entry> = [];
     for (let round = 0; round < tournamentData.nRounds; round++) {
-      const submission = reg_matchup?.get(round);
-      const opponent = rev_matchup?.get(round);
+      const submission = reg_matchup?.[round];
+      const opponent = rev_matchup?.[round];
       const submission_defected = submission?.defected;
       const opponent_defected = opponent?.defected;
       const score = typeof submission_defected === 'boolean' && typeof opponent_defected === 'boolean'
