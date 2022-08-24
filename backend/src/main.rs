@@ -6,8 +6,9 @@ use std::str::FromStr;
 use warp::Filter;
 
 use std::sync::Arc;
+use tokio::sync::broadcast;
+use tokio::sync::mpsc;
 use tokio::sync::Mutex;
-use tokio::sync::mpsc::UnboundedSender;
 
 mod utils;
 
@@ -46,21 +47,30 @@ struct Opts {
     pythonbox_service_url: String,
     #[clap(long)]
     port: u16,
+    #[clap(long)]
+    workers: u16,
 }
 
 pub type Db = deadpool_postgres::Pool;
 
-pub type SharedNotifyQueue = Arc<Mutex<Vec<UnboundedSender<()>>>>;
+#[derive(Clone, Debug)]
+pub struct MatchupTask {
+    pub matchup_num: i64,
+    pub start_round: i64,
+    pub n_rounds: i64,
+    pub submission: db_types::Submission,
+    pub opponent_submission: db_types::Submission,
+}
 
 #[derive(Clone)]
 pub struct AppData {
     pub db: Db,
     pub site_external_url: String,
-    pub database_url: String,
-    pub match_resolution_inserted: SharedNotifyQueue,
-    pub tournament_submission_inserted: SharedNotifyQueue,
+    pub match_resolution_insert_tx: broadcast::Sender<()>,
+    pub tournament_submission_insert_tx: broadcast::Sender<()>,
+    pub matchup_task_tx: mpsc::UnboundedSender<MatchupTask>,
+    pub matchup_task_rx: Arc<Mutex<mpsc::UnboundedReceiver<MatchupTask>>>,
     pub auth_service: AuthService,
-    pub run_code_service: RunCodeService,
 }
 
 #[tokio::main]
@@ -71,6 +81,7 @@ async fn main() -> Result<(), ()> {
         auth_service_url,
         pythonbox_service_url,
         port,
+        workers,
     } = Opts::parse();
 
     let postgres_config = tokio_postgres::Config::from_str(&database_url).map_err(|e| {
@@ -115,19 +126,30 @@ async fn main() -> Result<(), ()> {
         });
     });
 
+    // its ok if it lags because we do the whole query all over again
+    let (match_resolution_insert_tx, _) = broadcast::channel(1);
+    let (tournament_submission_insert_tx, _) = broadcast::channel(1);
+
+    // submit queue
+    let (matchup_task_tx, matchup_task_rx) = mpsc::unbounded_channel();
+
     let data = AppData {
         site_external_url,
-        database_url,
         db: pool,
-        match_resolution_inserted: Arc::new(Mutex::new(vec![])),
-        tournament_submission_inserted: Arc::new(Mutex::new(vec![])),
+        match_resolution_insert_tx,
+        tournament_submission_insert_tx,
+        matchup_task_rx: Arc::new(Mutex::new(matchup_task_rx)),
+        matchup_task_tx,
         auth_service,
-        run_code_service,
     };
 
     let api = api::api(data);
 
     warp::serve(api.with(log)).run(([0, 0, 0, 0], port)).await;
+
+    for _ in 0..workers {
+
+    }
 
     return Ok(());
 }

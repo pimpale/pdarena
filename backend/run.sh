@@ -6,3 +6,4 @@
   --auth-service-url=http://localhost:8079 \
   --pythonbox-service-url=http://localhost:8075 \
   --site-external-url=http://localhost:3000 \
+  --n_workers=2

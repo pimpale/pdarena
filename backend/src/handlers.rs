@@ -1,13 +1,14 @@
+use crate::MatchupTask;
 use crate::request::TournamentSubmissionKind;
 use crate::response::AppError;
 use crate::run_code::RunCodeService;
-use crate::SharedNotifyQueue;
 
 use super::Db;
 use auth_service_api::response::AuthError;
 use auth_service_api::response::User;
 use futures_util::{SinkExt, StreamExt};
-use tokio::sync::mpsc::unbounded_channel;
+use tokio::sync::broadcast;
+use tokio::sync::mpsc;
 use warp::ws::Message;
 
 use super::request;
@@ -222,7 +223,7 @@ pub fn do_battle(
     run_code_service: RunCodeService,
     submission: Submission,
     opponent_submission: Submission,
-    notif_queue: SharedNotifyQueue,
+    notif_queue: broadcast::Sender<()>,
 ) {
     for matchup in 0..n_matchups {
         tokio::task::spawn(do_matchup(
@@ -245,8 +246,8 @@ pub async fn do_matchup(
     run_code_service: RunCodeService,
     submission: Submission,
     opponent_submission: Submission,
-    notif_queue: SharedNotifyQueue,
-) {
+    notif_queue: broadcast::Sender<()>,
+) -> Result<(), response::AppError> {
     let mut submission_defection_history = vec![];
     let mut opponent_submission_defection_history = vec![];
 
@@ -261,8 +262,7 @@ pub async fn do_matchup(
             &run_code_service,
             notif_queue.clone(),
         )
-        .await
-        .unwrap();
+        .await?;
 
         let opponent_submission_match_resolution = execute_match(
             db.clone(),
@@ -274,12 +274,13 @@ pub async fn do_matchup(
             &run_code_service,
             notif_queue.clone(),
         )
-        .await
-        .unwrap();
+        .await?;
 
         submission_defection_history.push(submission_match_resolution.defected);
         opponent_submission_defection_history.push(opponent_submission_match_resolution.defected);
     }
+    
+    return Ok(());
 }
 
 async fn execute_match(
@@ -290,7 +291,7 @@ async fn execute_match(
     matchup: i64,
     opponent_defection_history: &Vec<Option<bool>>,
     run_code_service: &RunCodeService,
-    notif_queue: SharedNotifyQueue,
+    notif_queue: broadcast::Sender<()>,
 ) -> Result<MatchResolution, AppError> {
     let opponent_defection_history_str = opponent_defection_history
         .into_iter()
@@ -356,14 +357,8 @@ async fn execute_match(
     .await
     .map_err(report_postgres_err)?;
 
-    // send to each queue in queue list, dropping queues that are dead
-    notif_queue
-        .lock()
-        .await
-        .retain(|sender| match sender.send(()) {
-            Ok(()) => true,
-            Err(_) => false,
-        });
+    // broadcast to all queues, ignoring the result
+    let _ = notif_queue.send(());
 
     Ok(match_resolution)
 }
@@ -461,6 +456,10 @@ pub async fn tournament_data_new(
     .await
     .map_err(report_postgres_err)?;
 
+    // put in round requests for any new rounds
+
+    // put in matchup requests for any new matchups
+
     sp.commit().await.map_err(report_postgres_err)?;
 
     // return json
@@ -472,7 +471,7 @@ pub async fn tournament_submission_new(
         db,
         auth_service,
         run_code_service,
-        match_resolution_inserted,
+        matchup_task_tx,
         ..
     }: AppData,
     props: request::TournamentSubmissionNewProps,
@@ -540,15 +539,14 @@ pub async fn tournament_submission_new(
                             .map_err(report_postgres_err)?
                             .ok_or(AppError::SubmissionNonexistent)?;
 
-                    do_battle(
-                        db.clone(),
-                        tournament_data.n_matchups,
+                    matchup_task_tx.send(MatchupTask {
+                        matchup_num: tournament_data.n_matchups,
                         tournament_data.n_rounds,
                         run_code_service.clone(),
                         submission.clone(),
                         opponent_submission,
-                        match_resolution_inserted.clone(),
-                    );
+                        match_resolution_insert_tx.clone(),
+                    });
                 }
             }
         }
@@ -639,7 +637,7 @@ pub async fn tournament_submission_new(
                         run_code_service.clone(),
                         submission.clone(),
                         opponent_submission,
-                        match_resolution_inserted.clone(),
+                        match_resolution_insert_tx.clone(),
                     );
                 }
 
@@ -651,7 +649,7 @@ pub async fn tournament_submission_new(
                     run_code_service.clone(),
                     submission.clone(),
                     submission.clone(),
-                    match_resolution_inserted.clone(),
+                    match_resolution_insert_tx.clone(),
                 );
             }
         }
@@ -686,7 +684,7 @@ pub async fn tournament_submission_new(
                     run_code_service.clone(),
                     submission.clone(),
                     opponent_submission,
-                    match_resolution_inserted.clone(),
+                    match_resolution_insert_tx.clone(),
                 );
             }
         }
@@ -807,21 +805,15 @@ pub async fn tournament_submission_stream(
     AppData {
         db,
         auth_service,
-        match_resolution_inserted,
+        tournament_submission_insert_tx,
         ..
     }: AppData,
     websocket: warp::ws::WebSocket,
 ) {
     tokio::pin!(websocket);
 
-    // create multi-producer single consumer pair
-    let (send, mut recv) = unbounded_channel();
-
-    // push 1 notif inside the queue immediately (so that loop runs)
-    send.send(()).unwrap();
-
-    // push sending end into array
-    match_resolution_inserted.lock().await.push(send);
+    // subscribe to sender
+    let mut rx = tournament_submission_insert_tx.subscribe();
 
     let result: Result<(), response::AppError> = try {
         let message = websocket
@@ -842,36 +834,51 @@ pub async fn tournament_submission_stream(
         // initialize the next novel id to the one specified
         let mut next_new_id = props.min_id.unwrap_or(0);
 
+        let mut first_loop = true;
+
         // return tournament_submissions
-        'recv_loop: while let Some(()) = recv.recv().await {
-            let client: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
+        'recv_loop: loop {
+            // first loop goes automatically, but following loops must await
+            match if first_loop { Ok(()) } else { rx.recv().await } {
+                Ok(()) | Err(broadcast::error::RecvError::Lagged(_)) => {
+                    let client: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
 
-            // set the max id to the one specified at the end of the loop
-            let mut adjusted_props = props.clone();
-            adjusted_props.min_id = Some(next_new_id);
+                    // set the max id to the one specified at the end of the loop
+                    let mut adjusted_props = props.clone();
+                    adjusted_props.min_id = Some(next_new_id);
 
-            // get data
-            let tournament_submission =
-                tournament_submission_service::query(&mut *client, adjusted_props)
-                    .await
-                    .map_err(report_postgres_err)?;
+                    // get data
+                    let tournament_submission =
+                        tournament_submission_service::query(&mut *client, adjusted_props)
+                            .await
+                            .map_err(report_postgres_err)?;
 
-            for u in tournament_submission.into_iter() {
-                if u.tournament_submission_id > next_new_id {
-                    next_new_id = u.tournament_submission_id;
-                }
+                    for u in tournament_submission.into_iter() {
+                        // set next_new_id to the highest id processed + 1
+                        if u.tournament_submission_id > next_new_id {
+                            next_new_id = u.tournament_submission_id + 1;
+                        }
 
-                let json_str =
-                    serde_json::to_string(&fill_tournament_submission(&mut *client, u).await?)
+                        let json_str = serde_json::to_string(
+                            &fill_tournament_submission(&mut *client, u).await?,
+                        )
                         .expect("serde should have serialized json");
 
-                // try to send array. If it fails then we close the websocket
-                if let Err(_) = websocket.send(Message::text(json_str)).await {
-                    break 'recv_loop;
+                        // try to send array. If it fails then we close the websocket
+                        if let Err(_) = websocket.send(Message::text(json_str)).await {
+                            break 'recv_loop;
+                        }
+                    }
                 }
+                // if we recieve another kind of error
+                _ => break 'recv_loop,
+            }
+
+            // after the first loop, we won't repeat
+            if first_loop {
+                first_loop = false;
             }
         }
-
         return ();
     };
 }
@@ -880,21 +887,15 @@ pub async fn match_resolution_lite_stream(
     AppData {
         db,
         auth_service,
-        match_resolution_inserted,
+        match_resolution_insert_tx,
         ..
     }: AppData,
     websocket: warp::ws::WebSocket,
 ) {
     tokio::pin!(websocket);
 
-    // create multi-producer single consumer pair
-    let (send, mut recv) = unbounded_channel();
-
-    // push 1 notif inside the queue immediately (so that loop runs)
-    send.send(()).unwrap();
-
-    // push sending end into array
-    match_resolution_inserted.lock().await.push(send);
+    // subscribe to sender
+    let mut rx = match_resolution_insert_tx.subscribe();
 
     let result: Result<(), response::AppError> = try {
         let message = websocket
@@ -918,31 +919,47 @@ pub async fn match_resolution_lite_stream(
         // initialize the next novel id to the one specified
         let mut next_new_id = props.min_id.unwrap_or(0);
 
+        let mut first_loop = true;
+
         // return match_resolutions
-        'recv_loop: while let Some(()) = recv.recv().await {
-            let client: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
+        'recv_loop: loop {
+            // first loop goes automatically, but following loops must await
+            match if first_loop { Ok(()) } else { rx.recv().await } {
+                Ok(()) | Err(broadcast::error::RecvError::Lagged(_)) => {
+                    let client: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
 
-            // set the max id to the one specified at the end of the loop
-            let mut adjusted_props = props.clone();
-            adjusted_props.min_id = Some(next_new_id);
-            // get data
-            let match_resolution = match_resolution_service::query(&mut *client, adjusted_props)
-                .await
-                .map_err(report_postgres_err)?;
+                    // set the max id to the one specified at the end of the loop
+                    let mut adjusted_props = props.clone();
+                    adjusted_props.min_id = Some(next_new_id);
+                    // get data
+                    let match_resolution =
+                        match_resolution_service::query(&mut *client, adjusted_props)
+                            .await
+                            .map_err(report_postgres_err)?;
 
-            for u in match_resolution.into_iter() {
-                if u.match_resolution_id > next_new_id {
-                    next_new_id = u.match_resolution_id;
-                }
+                    for u in match_resolution.into_iter() {
+                        // set next_new_id to the highest id processed + 1
+                        if u.match_resolution_id > next_new_id {
+                            next_new_id = u.match_resolution_id + 1;
+                        }
 
-                let json_str =
-                    serde_json::to_string(&fill_match_resolution_lite(&mut *client, u).await?)
+                        let json_str = serde_json::to_string(
+                            &fill_match_resolution_lite(&mut *client, u).await?,
+                        )
                         .expect("serde should have serialized json");
 
-                // try to send array. If it fails then we close the websocket
-                if let Err(_) = websocket.send(Message::text(json_str)).await {
-                    break 'recv_loop;
+                        // try to send array. If it fails then we close the websocket
+                        if let Err(_) = websocket.send(Message::text(json_str)).await {
+                            break 'recv_loop;
+                        }
+                    }
                 }
+                _ => break 'recv_loop,
+            }
+
+            // after the first loop, we won't repeat
+            if first_loop {
+                first_loop = false;
             }
         }
         return ();

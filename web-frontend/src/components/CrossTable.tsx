@@ -134,14 +134,15 @@ type CrossTableProps = {
 
 function CrossTable(props: CrossTableProps) {
   // only show competing ones
-  const tournamentSubmissions = props.tournamentSubmissions.filter(x => x.kind === "COMPETE");
+  const tournamentSubmissions = props.tournamentSubmissions
+    .filter(x => x.kind === "COMPETE");
 
   // early exit if no submissions
   if (tournamentSubmissions.length === 0) {
     return <h5 className="m-5">No Competing Submissions!</h5>
   }
 
-  const table = scoreEntries(props.tournamentData, props.tournamentSubmissions, props.matches);
+  const table = scoreEntries(props.tournamentData, tournamentSubmissions, props.matches);
 
   return <table className="mt-5" style={{ display: "inline-table" }}>
     <thead>
