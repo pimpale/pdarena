@@ -1,6 +1,7 @@
 #![feature(try_blocks)]
 use clap::Parser;
 use run_code::RunCodeService;
+use std::alloc::handle_alloc_error;
 use std::error::Error;
 use std::str::FromStr;
 use warp::Filter;
@@ -56,8 +57,7 @@ pub type Db = deadpool_postgres::Pool;
 #[derive(Clone, Debug)]
 pub struct MatchupTask {
     pub matchup_num: i64,
-    pub start_round: i64,
-    pub n_rounds: i64,
+    pub max_round: i64,
     pub submission: db_types::Submission,
     pub opponent_submission: db_types::Submission,
 }
@@ -69,7 +69,6 @@ pub struct AppData {
     pub match_resolution_insert_tx: broadcast::Sender<()>,
     pub tournament_submission_insert_tx: broadcast::Sender<()>,
     pub matchup_task_tx: mpsc::UnboundedSender<MatchupTask>,
-    pub matchup_task_rx: Arc<Mutex<mpsc::UnboundedReceiver<MatchupTask>>>,
     pub auth_service: AuthService,
 }
 
@@ -138,7 +137,6 @@ async fn main() -> Result<(), ()> {
         db: pool,
         match_resolution_insert_tx,
         tournament_submission_insert_tx,
-        matchup_task_rx: Arc::new(Mutex::new(matchup_task_rx)),
         matchup_task_tx,
         auth_service,
     };
@@ -147,8 +145,13 @@ async fn main() -> Result<(), ()> {
 
     warp::serve(api.with(log)).run(([0, 0, 0, 0], port)).await;
 
+    let matchup_task_rx = Arc::new(Mutex::new(matchup_task_rx));
     for _ in 0..workers {
-
+        tokio::task::spawn(handlers::worker(
+            pool,
+            run_code_service,
+            matchup_task_rx.clone(),
+        ));
     }
 
     return Ok(());

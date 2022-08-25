@@ -1,7 +1,7 @@
-use crate::MatchupTask;
 use crate::request::TournamentSubmissionKind;
 use crate::response::AppError;
 use crate::run_code::RunCodeService;
+use crate::MatchupTask;
 
 use super::Db;
 use auth_service_api::response::AuthError;
@@ -215,27 +215,11 @@ pub async fn submission_new(
     fill_submission(con, submission).await
 }
 
-// uses RunCode to do a match between two submissions
-pub fn do_battle(
+pub async fn match_worker(
     db: Db,
-    n_matchups: i64,
-    n_rounds: i64,
     run_code_service: RunCodeService,
-    submission: Submission,
-    opponent_submission: Submission,
-    notif_queue: broadcast::Sender<()>,
+    matchup_task_rx: Arc<Mutex<mpsc::UnboundedReceiver<MatchupTask>>>,
 ) {
-    for matchup in 0..n_matchups {
-        tokio::task::spawn(do_matchup(
-            db.clone(),
-            matchup,
-            n_rounds,
-            run_code_service.clone(),
-            submission.clone(),
-            opponent_submission.clone(),
-            notif_queue.clone(),
-        ));
-    }
 }
 
 // uses RunCode to do a match between two submissions
@@ -279,7 +263,7 @@ pub async fn do_matchup(
         submission_defection_history.push(submission_match_resolution.defected);
         opponent_submission_defection_history.push(opponent_submission_match_resolution.defected);
     }
-    
+
     return Ok(());
 }
 
@@ -539,14 +523,16 @@ pub async fn tournament_submission_new(
                             .map_err(report_postgres_err)?
                             .ok_or(AppError::SubmissionNonexistent)?;
 
-                    matchup_task_tx.send(MatchupTask {
-                        matchup_num: tournament_data.n_matchups,
-                        tournament_data.n_rounds,
-                        run_code_service.clone(),
-                        submission.clone(),
-                        opponent_submission,
-                        match_resolution_insert_tx.clone(),
-                    });
+                    for i in 0..tournament_data.n_matchups {
+                        matchup_task_tx
+                            .send(MatchupTask {
+                                matchup_num: i,
+                                max_round: tournament_data.n_rounds,
+                                submission: submission.clone(),
+                                opponent_submission: opponent_submission,
+                            })
+                            .unwrap();
+                    }
                 }
             }
         }
@@ -630,27 +616,29 @@ pub async fn tournament_submission_new(
                             .map_err(report_postgres_err)?
                             .ok_or(AppError::SubmissionNonexistent)?;
 
-                    do_battle(
-                        db.clone(),
-                        tournament_data.n_matchups,
-                        tournament_data.n_rounds,
-                        run_code_service.clone(),
-                        submission.clone(),
-                        opponent_submission,
-                        match_resolution_insert_tx.clone(),
-                    );
+                    for i in 0..tournament_data.n_matchups {
+                        matchup_task_tx
+                            .send(MatchupTask {
+                                matchup_num: i,
+                                max_round: tournament_data.n_rounds,
+                                submission: submission.clone(),
+                                opponent_submission: opponent_submission,
+                            })
+                            .unwrap();
+                    }
                 }
 
                 // also matchup against self
-                do_battle(
-                    db.clone(),
-                    tournament_data.n_matchups,
-                    tournament_data.n_rounds,
-                    run_code_service.clone(),
-                    submission.clone(),
-                    submission.clone(),
-                    match_resolution_insert_tx.clone(),
-                );
+                for i in 0..tournament_data.n_matchups {
+                    matchup_task_tx
+                        .send(MatchupTask {
+                            matchup_num: i,
+                            max_round: tournament_data.n_rounds,
+                            submission: submission.clone(),
+                            opponent_submission: submission.clone(),
+                        })
+                        .unwrap();
+                }
             }
         }
         request::TournamentSubmissionKind::Testcase => {
@@ -677,15 +665,16 @@ pub async fn tournament_submission_new(
                         .map_err(report_postgres_err)?
                         .ok_or(AppError::SubmissionNonexistent)?;
 
-                do_battle(
-                    db.clone(),
-                    tournament_data.n_matchups,
-                    tournament_data.n_rounds,
-                    run_code_service.clone(),
-                    submission.clone(),
-                    opponent_submission,
-                    match_resolution_insert_tx.clone(),
-                );
+                for i in 0..tournament_data.n_matchups {
+                    matchup_task_tx
+                        .send(MatchupTask {
+                            matchup_num: i,
+                            max_round: tournament_data.n_rounds,
+                            submission: submission.clone(),
+                            opponent_submission: opponent_submission,
+                        })
+                        .unwrap();
+                }
             }
         }
         request::TournamentSubmissionKind::Cancel => {
