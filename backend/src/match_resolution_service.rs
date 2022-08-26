@@ -150,15 +150,15 @@ pub async fn get_defection_history(
     con: &mut impl GenericClient,
     submission_id: i64,
     opponent_submission_id: i64,
-    round: i64,
-) -> Result<Vec<Option<bool>>, tokio_postgres::Error> {
+    matchup: i64,
+) -> Result<Vec<MatchResolution>, tokio_postgres::Error> {
     let sql = [
-        "SELECT mr.defected",
+        "SELECT mr.*",
         "FROM recent_match_resolution mr",
         "WHERE 1 = 1",
         "AND mr.submission_id = $1",
         "AND mr.opponent_submission_id = $2",
-        "AND mr.round < $3",
+        "AND mr.matchup = $3",
         "ORDER BY mr.round",
     ]
     .join("\n");
@@ -166,10 +166,10 @@ pub async fn get_defection_history(
     let stmnt = con.prepare(&sql).await?;
 
     let results = con
-        .query(&stmnt, &[&submission_id, &opponent_submission_id, &round])
+        .query(&stmnt, &[&submission_id, &opponent_submission_id, &matchup])
         .await?
         .into_iter()
-        .map(|row| row.get(0))
+        .map(|row| row.into())
         .collect();
 
     Ok(results)

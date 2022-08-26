@@ -9,6 +9,7 @@ use auth_service_api::response::User;
 use futures_util::{SinkExt, StreamExt};
 use tokio::sync::broadcast;
 use tokio::sync::mpsc;
+use tokio::sync::Mutex;
 use warp::ws::Message;
 
 use super::request;
@@ -24,6 +25,7 @@ use super::tournament_service;
 use super::tournament_submission_service;
 
 use std::error::Error;
+use std::sync::Arc;
 
 use super::AppData;
 
@@ -215,56 +217,88 @@ pub async fn submission_new(
     fill_submission(con, submission).await
 }
 
-pub async fn match_worker(
+pub async fn matchup_runner(
     db: Db,
     run_code_service: RunCodeService,
     matchup_task_rx: Arc<Mutex<mpsc::UnboundedReceiver<MatchupTask>>>,
+    match_resolution_insert_tx: broadcast::Sender<()>,
 ) {
-}
+    loop {
+        let MatchupTask {
+            matchup_num,
+            n_rounds,
+            submission,
+            opponent_submission,
+        } = matchup_task_rx.lock().await.recv().await.unwrap();
 
-// uses RunCode to do a match between two submissions
-pub async fn do_matchup(
-    db: Db,
-    matchup: i64,
-    n_rounds: i64,
-    run_code_service: RunCodeService,
-    submission: Submission,
-    opponent_submission: Submission,
-    notif_queue: broadcast::Sender<()>,
-) -> Result<(), response::AppError> {
-    let mut submission_defection_history = vec![];
-    let mut opponent_submission_defection_history = vec![];
+        // query the rounds that already exist for this matchup
+        let con: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
+        let mut submission_defection_history: Vec<Option<bool>> =
+            match_resolution_service::get_defection_history(
+                con,
+                submission.submission_id,
+                opponent_submission.submission_id,
+                matchup_num,
+            )
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|x| x.defected)
+            .collect();
 
-    for round in 0..n_rounds {
-        let submission_match_resolution = execute_match(
-            db.clone(),
-            &submission,
-            &opponent_submission,
-            round,
-            matchup,
-            &opponent_submission_defection_history,
-            &run_code_service,
-            notif_queue.clone(),
-        )
-        .await?;
+        let mut opponent_defection_history: Vec<Option<bool>> =
+            match_resolution_service::get_defection_history(
+                con,
+                opponent_submission.submission_id,
+                submission.submission_id,
+                matchup_num,
+            )
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|x| x.defected)
+            .collect();
 
-        let opponent_submission_match_resolution = execute_match(
-            db.clone(),
-            &opponent_submission,
-            &submission,
-            round,
-            matchup,
-            &submission_defection_history,
-            &run_code_service,
-            notif_queue.clone(),
-        )
-        .await?;
+        // truncate to minimum number of rounds
+        let current_round = usize::min(
+            submission_defection_history.len(),
+            opponent_defection_history.len(),
+        );
+        submission_defection_history.truncate(current_round);
+        opponent_defection_history.truncate(current_round);
 
-        submission_defection_history.push(submission_match_resolution.defected);
-        opponent_submission_defection_history.push(opponent_submission_match_resolution.defected);
+        // rounds are zero indexed, so this is ok
+        for round in (current_round as i64)..n_rounds {
+            let submission_match_resolution = execute_match(
+                db.clone(),
+                &submission,
+                &opponent_submission,
+                round,
+                matchup_num,
+                &opponent_defection_history,
+                &run_code_service,
+                match_resolution_insert_tx.clone(),
+            )
+            .await
+            .unwrap();
+
+            let opponent_submission_match_resolution = execute_match(
+                db.clone(),
+                &opponent_submission,
+                &submission,
+                round,
+                matchup_num,
+                &submission_defection_history,
+                &run_code_service,
+                match_resolution_insert_tx.clone(),
+            )
+            .await
+            .unwrap();
+
+            submission_defection_history.push(submission_match_resolution.defected);
+            opponent_defection_history.push(opponent_submission_match_resolution.defected);
+        }
     }
-
-    return Ok(());
 }
 
 async fn execute_match(
