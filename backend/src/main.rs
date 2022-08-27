@@ -1,7 +1,5 @@
 #![feature(try_blocks)]
 use clap::Parser;
-use run_code::RunCodeService;
-use std::alloc::handle_alloc_error;
 use std::error::Error;
 use std::str::FromStr;
 use warp::Filter;
@@ -54,12 +52,12 @@ struct Opts {
 
 pub type Db = deadpool_postgres::Pool;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MatchupTask {
     pub matchup_num: i64,
     pub n_rounds: i64,
-    pub submission: db_types::Submission,
-    pub opponent_submission: db_types::Submission,
+    pub submission_id: i64,
+    pub opponent_submission_id: i64,
 }
 
 #[derive(Clone)]
@@ -131,15 +129,19 @@ async fn main() -> Result<(), ()> {
 
     // submit queue
     let (matchup_task_tx, matchup_task_rx) = mpsc::unbounded_channel();
+    let matchup_task_rx = Arc::new(Mutex::new(matchup_task_rx));
+
+    // vector of currently processing tasks
+    let ongoing_tasks = Arc::new(Mutex::new(vec![]));
 
     // start workers
-    let matchup_task_rx = Arc::new(Mutex::new(matchup_task_rx));
     for _ in 0..workers {
         tokio::task::spawn(handlers::matchup_runner(
-            pool,
+            pool.clone(),
             run_code_service.clone(),
             matchup_task_rx.clone(),
-            match_resolution_insert_tx.clone()
+            match_resolution_insert_tx.clone(),
+            ongoing_tasks.clone(),
         ));
     }
 

@@ -38,6 +38,15 @@ pub fn report_postgres_err(e: tokio_postgres::Error) -> response::AppError {
     response::AppError::InternalServerError
 }
 
+pub fn report_pool_err(e: deadpool_postgres::PoolError) -> response::AppError {
+    utils::log(utils::Event {
+        msg: e.to_string(),
+        source: e.source().map(|e| e.to_string()),
+        severity: utils::SeverityKind::Error,
+    });
+    response::AppError::InternalServerError
+}
+
 pub fn report_io_err(e: std::io::Error) -> response::AppError {
     utils::log(utils::Event {
         msg: e.to_string(),
@@ -202,7 +211,7 @@ pub async fn submission_new(
         return Err(response::AppError::SubmissionTooLong);
     }
 
-    let con: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
+    let con: &mut tokio_postgres::Client = &mut *db.get().await.map_err(report_pool_err)?;
 
     let mut sp = con.transaction().await.map_err(report_postgres_err)?;
 
@@ -222,83 +231,135 @@ pub async fn matchup_runner(
     run_code_service: RunCodeService,
     matchup_task_rx: Arc<Mutex<mpsc::UnboundedReceiver<MatchupTask>>>,
     match_resolution_insert_tx: broadcast::Sender<()>,
+    ongoing_tasks: Arc<Mutex<Vec<MatchupTask>>>,
 ) {
     loop {
-        let MatchupTask {
-            matchup_num,
-            n_rounds,
-            submission,
-            opponent_submission,
-        } = matchup_task_rx.lock().await.recv().await.unwrap();
+        let task = matchup_task_rx.lock().await.recv().await.unwrap();
 
-        // query the rounds that already exist for this matchup
-        let con: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
-        let mut submission_defection_history: Vec<Option<bool>> =
-            match_resolution_service::get_defection_history(
-                con,
-                submission.submission_id,
-                opponent_submission.submission_id,
-                matchup_num,
-            )
-            .await
-            .unwrap()
-            .into_iter()
-            .map(|x| x.defected)
-            .collect();
+        // lock ongoing tasks
+        {
+            let mut ongoing_tasks = ongoing_tasks.lock().await;
 
-        let mut opponent_defection_history: Vec<Option<bool>> =
-            match_resolution_service::get_defection_history(
-                con,
-                opponent_submission.submission_id,
-                submission.submission_id,
-                matchup_num,
-            )
-            .await
-            .unwrap()
-            .into_iter()
-            .map(|x| x.defected)
-            .collect();
+            // skip this task if something is already doing it
+            if ongoing_tasks.iter().any(|x| {
+                x.matchup_num == task.matchup_num
+                    && x.submission_id == task.submission_id
+                    && x.opponent_submission_id == task.opponent_submission_id
+                    && x.n_rounds >= task.n_rounds
+            }) {
+                continue;
+            }
 
-        // truncate to minimum number of rounds
-        let current_round = usize::min(
-            submission_defection_history.len(),
-            opponent_defection_history.len(),
-        );
-        submission_defection_history.truncate(current_round);
-        opponent_defection_history.truncate(current_round);
-
-        // rounds are zero indexed, so this is ok
-        for round in (current_round as i64)..n_rounds {
-            let submission_match_resolution = execute_match(
-                db.clone(),
-                &submission,
-                &opponent_submission,
-                round,
-                matchup_num,
-                &opponent_defection_history,
-                &run_code_service,
-                match_resolution_insert_tx.clone(),
-            )
-            .await
-            .unwrap();
-
-            let opponent_submission_match_resolution = execute_match(
-                db.clone(),
-                &opponent_submission,
-                &submission,
-                round,
-                matchup_num,
-                &submission_defection_history,
-                &run_code_service,
-                match_resolution_insert_tx.clone(),
-            )
-            .await
-            .unwrap();
-
-            submission_defection_history.push(submission_match_resolution.defected);
-            opponent_defection_history.push(opponent_submission_match_resolution.defected);
+            // otherwise push it into ongoing tasks
+            ongoing_tasks.push(task.clone());
         }
+
+        // run matchup
+        let result = run_matchup(
+            db.clone(),
+            task.clone(),
+            run_code_service.clone(),
+            match_resolution_insert_tx.clone(),
+        )
+        .await;
+
+        // remove from ongoing task
+        ongoing_tasks.lock().await.retain(|x| x != &task);
+
+        // unwrap result
+        result.unwrap();
     }
+}
+
+async fn run_matchup(
+    db: Db,
+    MatchupTask {
+        matchup_num,
+        n_rounds,
+        submission_id,
+        opponent_submission_id,
+    }: MatchupTask,
+    run_code_service: RunCodeService,
+    match_resolution_insert_tx: broadcast::Sender<()>,
+) -> Result<(), AppError> {
+    // query the rounds that already exist for this matchup
+    let con: &mut tokio_postgres::Client = &mut *db.get().await.map_err(report_pool_err)?;
+
+    let submission = submission_service::get_by_submission_id(con, submission_id)
+        .await
+        .map_err(report_postgres_err)?
+        .ok_or(response::AppError::SubmissionNonexistent)?;
+
+    let opponent_submission = submission_service::get_by_submission_id(con, opponent_submission_id)
+        .await
+        .map_err(report_postgres_err)?
+        .ok_or(response::AppError::SubmissionNonexistent)?;
+
+    let mut submission_defection_history: Vec<Option<bool>> =
+        match_resolution_service::get_defection_history(
+            con,
+            submission.submission_id,
+            opponent_submission.submission_id,
+            matchup_num,
+        )
+        .await
+        .map_err(report_postgres_err)?
+        .into_iter()
+        .map(|x| x.defected)
+        .collect();
+
+    let mut opponent_defection_history: Vec<Option<bool>> =
+        match_resolution_service::get_defection_history(
+            con,
+            opponent_submission.submission_id,
+            submission.submission_id,
+            matchup_num,
+        )
+        .await
+        .map_err(report_postgres_err)?
+        .into_iter()
+        .map(|x| x.defected)
+        .collect();
+
+    // truncate to minimum number of rounds
+    let current_round = usize::min(
+        submission_defection_history.len(),
+        opponent_defection_history.len(),
+    );
+    submission_defection_history.truncate(current_round);
+    opponent_defection_history.truncate(current_round);
+
+    // rounds are zero indexed, so this is ok
+    for round in (current_round as i64)..n_rounds {
+        let submission_match_resolution = execute_match(
+            db.clone(),
+            &submission,
+            &opponent_submission,
+            round,
+            matchup_num,
+            &opponent_defection_history,
+            &run_code_service,
+            match_resolution_insert_tx.clone(),
+        )
+        .await?;
+
+        let opponent_submission_match_resolution = execute_match(
+            db.clone(),
+            &opponent_submission,
+            &submission,
+            round,
+            matchup_num,
+            &submission_defection_history,
+            &run_code_service,
+            match_resolution_insert_tx.clone(),
+        )
+        .await?;
+
+        submission_defection_history.push(submission_match_resolution.defected);
+        opponent_defection_history.push(opponent_submission_match_resolution.defected);
+    }
+
+    return Ok(());
 }
 
 async fn execute_match(
@@ -361,7 +422,8 @@ async fn execute_match(
     };
 
     // create a match resolution in the case that the run_code callback fails
-    let con: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
+    let con: &mut tokio_postgres::Client = &mut *db.get().await.map_err(report_pool_err)?;
+
     let match_resolution = match_resolution_service::add(
         con,
         submission.submission_id,
@@ -397,7 +459,7 @@ pub async fn tournament_new(
         return Err(AppError::TournamentDataNMatchupsInvalid);
     }
 
-    let con: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
+    let con: &mut tokio_postgres::Client = &mut *db.get().await.map_err(report_pool_err)?;
 
     let mut sp = con.transaction().await.map_err(report_postgres_err)?;
 
@@ -428,7 +490,10 @@ pub async fn tournament_new(
 
 pub async fn tournament_data_new(
     AppData {
-        db, auth_service, ..
+        db,
+        auth_service,
+        matchup_task_tx,
+        ..
     }: AppData,
     props: request::TournamentDataNewProps,
 ) -> Result<response::TournamentData, response::AppError> {
@@ -446,7 +511,7 @@ pub async fn tournament_data_new(
         return Err(AppError::TournamentDataTooManyMatches);
     }
 
-    let con: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
+    let con: &mut tokio_postgres::Client = &mut *db.get().await.map_err(report_pool_err)?;
 
     let mut sp = con.transaction().await.map_err(report_postgres_err)?;
 
@@ -458,6 +523,26 @@ pub async fn tournament_data_new(
     // validate tournament is owned by correct user
     if tournament.creator_user_id != user.user_id {
         return Err(response::AppError::TournamentNonexistent);
+    }
+
+    // get tournament data
+    let old_td = tournament_data_service::get_recent_by_tournament_id(&mut sp, props.tournament_id)
+        .await
+        .map_err(report_postgres_err)?
+        .ok_or(response::AppError::TournamentNonexistent)?;
+
+    // put in matchup requests for any new matchups
+    for i in 0..props.n_matchups {
+        if props.n_rounds > old_td.n_rounds || i >= old_td.n_matchups {
+            matchup_task_tx
+                .send(MatchupTask {
+                    matchup_num: i,
+                    n_rounds: props.n_rounds,
+                    submission_id: submission.submission_id,
+                    opponent_submission_id: opponent_submission.submission_id,
+                })
+                .unwrap();
+        }
     }
 
     // create tournament data
@@ -474,10 +559,6 @@ pub async fn tournament_data_new(
     .await
     .map_err(report_postgres_err)?;
 
-    // put in round requests for any new rounds
-
-    // put in matchup requests for any new matchups
-
     sp.commit().await.map_err(report_postgres_err)?;
 
     // return json
@@ -488,7 +569,6 @@ pub async fn tournament_submission_new(
     AppData {
         db,
         auth_service,
-        run_code_service,
         matchup_task_tx,
         ..
     }: AppData,
@@ -497,7 +577,7 @@ pub async fn tournament_submission_new(
     // validate api key
     let user = get_user_if_api_key_valid(&auth_service, props.api_key).await?;
 
-    let con: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
+    let con: &mut tokio_postgres::Client = &mut *db.get().await.map_err(report_pool_err)?;
 
     let mut sp = con.transaction().await.map_err(report_postgres_err)?;
 
@@ -561,9 +641,9 @@ pub async fn tournament_submission_new(
                         matchup_task_tx
                             .send(MatchupTask {
                                 matchup_num: i,
-                                max_round: tournament_data.n_rounds,
-                                submission: submission.clone(),
-                                opponent_submission: opponent_submission,
+                                n_rounds: tournament_data.n_rounds,
+                                submission_id: submission.submission_id,
+                                opponent_submission_id: opponent_submission.submission_id,
                             })
                             .unwrap();
                     }
@@ -654,9 +734,9 @@ pub async fn tournament_submission_new(
                         matchup_task_tx
                             .send(MatchupTask {
                                 matchup_num: i,
-                                max_round: tournament_data.n_rounds,
-                                submission: submission.clone(),
-                                opponent_submission: opponent_submission,
+                                n_rounds: tournament_data.n_rounds,
+                                submission_id: submission.submission_id,
+                                opponent_submission_id: opponent_submission.submission_id,
                             })
                             .unwrap();
                     }
@@ -667,9 +747,9 @@ pub async fn tournament_submission_new(
                     matchup_task_tx
                         .send(MatchupTask {
                             matchup_num: i,
-                            max_round: tournament_data.n_rounds,
-                            submission: submission.clone(),
-                            opponent_submission: submission.clone(),
+                            n_rounds: tournament_data.n_rounds,
+                            submission_id: submission.submission_id,
+                            opponent_submission_id: submission.submission_id,
                         })
                         .unwrap();
                 }
@@ -703,9 +783,9 @@ pub async fn tournament_submission_new(
                     matchup_task_tx
                         .send(MatchupTask {
                             matchup_num: i,
-                            max_round: tournament_data.n_rounds,
-                            submission: submission.clone(),
-                            opponent_submission: opponent_submission,
+                            n_rounds: tournament_data.n_rounds,
+                            submission_id: submission.submission_id,
+                            opponent_submission_id: opponent_submission.submission_id,
                         })
                         .unwrap();
                 }
@@ -743,7 +823,7 @@ pub async fn submission_view(
     // validate api key
     let user = get_user_if_api_key_valid(&auth_service, props.api_key.clone()).await?;
 
-    let con: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
+    let con: &mut tokio_postgres::Client = &mut *db.get().await.map_err(report_pool_err)?;
     // get users
     let submissions = submission_service::query(con, props)
         .await
@@ -767,7 +847,7 @@ pub async fn tournament_data_view(
     }: AppData,
     props: request::TournamentDataViewProps,
 ) -> Result<Vec<response::TournamentData>, response::AppError> {
-    let con: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
+    let con: &mut tokio_postgres::Client = &mut *db.get().await.map_err(report_pool_err)?;
     // get users
     let tournament_data = tournament_data_service::query(con, props)
         .await
@@ -788,7 +868,7 @@ pub async fn tournament_submission_view(
     }: AppData,
     props: request::TournamentSubmissionViewProps,
 ) -> Result<Vec<response::TournamentSubmission>, response::AppError> {
-    let con: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
+    let con: &mut tokio_postgres::Client = &mut *db.get().await.map_err(report_pool_err)?;
     // get users
     let tournament_submission = tournament_submission_service::query(con, props)
         .await
@@ -809,7 +889,7 @@ pub async fn match_resolution_view(
     }: AppData,
     props: request::MatchResolutionViewProps,
 ) -> Result<Vec<response::MatchResolution>, response::AppError> {
-    let con: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
+    let con: &mut tokio_postgres::Client = &mut *db.get().await.map_err(report_pool_err)?;
     // get users
     let match_resolution = match_resolution_service::query(con, props)
         .await
@@ -864,7 +944,8 @@ pub async fn tournament_submission_stream(
             // first loop goes automatically, but following loops must await
             match if first_loop { Ok(()) } else { rx.recv().await } {
                 Ok(()) | Err(broadcast::error::RecvError::Lagged(_)) => {
-                    let client: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
+                    let client: &mut tokio_postgres::Client =
+                        &mut *db.get().await.map_err(report_pool_err)?;
 
                     // set the max id to the one specified at the end of the loop
                     let mut adjusted_props = props.clone();
@@ -949,7 +1030,8 @@ pub async fn match_resolution_lite_stream(
             // first loop goes automatically, but following loops must await
             match if first_loop { Ok(()) } else { rx.recv().await } {
                 Ok(()) | Err(broadcast::error::RecvError::Lagged(_)) => {
-                    let client: &mut tokio_postgres::Client = &mut *db.get().await.unwrap();
+                    let client: &mut tokio_postgres::Client =
+                        &mut *db.get().await.map_err(report_pool_err)?;
 
                     // set the max id to the one specified at the end of the loop
                     let mut adjusted_props = props.clone();
