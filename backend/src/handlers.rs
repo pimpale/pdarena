@@ -1,6 +1,7 @@
 use crate::request::TournamentSubmissionKind;
 use crate::response::AppError;
 use crate::run_code::RunCodeService;
+use crate::tournament_submission_service::get_recent_by_kind;
 use crate::MatchupTask;
 
 use super::Db;
@@ -532,16 +533,73 @@ pub async fn tournament_data_new(
         .ok_or(response::AppError::TournamentNonexistent)?;
 
     // put in matchup requests for any new matchups
+    let testcase_ids: Vec<i64> = tournament_submission_service::get_recent_by_kind(
+        &mut sp,
+        tournament.tournament_id,
+        &[TournamentSubmissionKind::Testcase],
+    )
+    .await
+    .map_err(report_postgres_err)?
+    .into_iter()
+    .map(|x| x.submission_id)
+    .collect();
+
+    let totest_ids: Vec<i64> = tournament_submission_service::get_recent_by_kind(
+        &mut sp,
+        tournament.tournament_id,
+        &[
+            TournamentSubmissionKind::Testcase,
+            TournamentSubmissionKind::Compete,
+        ],
+    )
+    .await
+    .map_err(report_postgres_err)?
+    .into_iter()
+    .map(|x| x.submission_id)
+    .collect();
+
+    let compete_ids: Vec<i64> = tournament_submission_service::get_recent_by_kind(
+        &mut sp,
+        tournament.tournament_id,
+        &[
+            TournamentSubmissionKind::Testcase,
+            TournamentSubmissionKind::Compete,
+        ],
+    )
+    .await
+    .map_err(report_postgres_err)?
+    .into_iter()
+    .map(|x| x.submission_id)
+    .collect();
+
     for i in 0..props.n_matchups {
         if props.n_rounds > old_td.n_rounds || i >= old_td.n_matchups {
-            matchup_task_tx
-                .send(MatchupTask {
-                    matchup_num: i,
-                    n_rounds: props.n_rounds,
-                    submission_id: submission.submission_id,
-                    opponent_submission_id: opponent_submission.submission_id,
-                })
-                .unwrap();
+            // testcases
+            for totest_id in &totest_ids {
+                for testcase_id in &testcase_ids {
+                    matchup_task_tx
+                        .send(MatchupTask {
+                            matchup_num: i,
+                            n_rounds: props.n_rounds,
+                            submission_id: *totest_id,
+                            opponent_submission_id: *testcase_id,
+                        })
+                        .unwrap();
+                }
+            }
+            // competition
+            for a in 0..compete_ids.len() {
+                for b in 0..=usize::min(a, compete_ids.len()) {
+                    matchup_task_tx
+                        .send(MatchupTask {
+                            matchup_num: i,
+                            n_rounds: props.n_rounds,
+                            submission_id: compete_ids[a],
+                            opponent_submission_id: compete_ids[b],
+                        })
+                        .unwrap();
+                }
+            }
         }
     }
 
@@ -631,19 +689,13 @@ pub async fn tournament_submission_new(
                 .await
                 .map_err(report_postgres_err)?
                 {
-                    let opponent_submission =
-                        submission_service::get_by_submission_id(&mut sp, testcase.submission_id)
-                            .await
-                            .map_err(report_postgres_err)?
-                            .ok_or(AppError::SubmissionNonexistent)?;
-
                     for i in 0..tournament_data.n_matchups {
                         matchup_task_tx
                             .send(MatchupTask {
                                 matchup_num: i,
                                 n_rounds: tournament_data.n_rounds,
                                 submission_id: submission.submission_id,
-                                opponent_submission_id: opponent_submission.submission_id,
+                                opponent_submission_id: testcase.submission_id,
                             })
                             .unwrap();
                     }
@@ -724,19 +776,13 @@ pub async fn tournament_submission_new(
                 .await
                 .map_err(report_postgres_err)?
                 {
-                    let opponent_submission =
-                        submission_service::get_by_submission_id(&mut sp, opponent.submission_id)
-                            .await
-                            .map_err(report_postgres_err)?
-                            .ok_or(AppError::SubmissionNonexistent)?;
-
                     for i in 0..tournament_data.n_matchups {
                         matchup_task_tx
                             .send(MatchupTask {
                                 matchup_num: i,
                                 n_rounds: tournament_data.n_rounds,
                                 submission_id: submission.submission_id,
-                                opponent_submission_id: opponent_submission.submission_id,
+                                opponent_submission_id: opponent.submission_id,
                             })
                             .unwrap();
                     }

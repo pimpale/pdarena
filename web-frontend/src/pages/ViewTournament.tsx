@@ -106,7 +106,7 @@ function ManageTournamentPageInner(props: {
       </div>
     </Section>
     <Section name="Table" id="table">
-      <b>Note:</b> submissions are on the columns, opponents are on the rows.
+      <b>Note:</b> submissions are on the rows, opponents are on the columns.
       <div className="text-center p-3" style={{ overflow: "scroll" }}>
         <CrossTable
           tournamentData={props.tournamentData}
