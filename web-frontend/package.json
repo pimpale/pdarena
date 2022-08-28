@@ -9,11 +9,11 @@
     "@innexgo/frontend-common": "^0.0.16",
     "@popperjs/core": "^2.11.6",
     "@react-spring/web": "^9.5.2",
-    "@types/node": "^18.7.9",
+    "@types/node": "^18.7.13",
     "@types/react": "^18.0.17",
     "@types/react-dom": "^18.0.6",
     "@types/react-router-dom": "^5.3.3",
-    "@types/react-syntax-highlighter": "^15.5.4",
+    "@types/react-syntax-highlighter": "^15.5.5",
     "assert": "^2.0.0",
     "bootstrap": "^5.2.0",
     "chrono-node": "^2.4.1",
@@ -27,7 +27,7 @@
     "react-bootstrap": "2.5.0",
     "react-bootstrap-icons": "^1.8.4",
     "react-bootstrap-select": "^0.14.0",
-    "react-day-picker": "^8.1.1",
+    "react-day-picker": "^8.1.4",
     "react-dom": "^18.2.0",
     "react-monaco-editor": "^0.49.0",
     "react-router-dom": "^6.3.0",
@@ -37,7 +37,7 @@
     "sass": "^1.54.5",
     "typeface-exo": "^1.1.13",
     "typeface-ubuntu": "^1.1.13",
-    "typescript": "^4.7.4"
+    "typescript": "^4.8.2"
   },
   "devDependencies": {
     "http-proxy-middleware": "v3.0.0-beta.0"

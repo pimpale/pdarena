@@ -20,11 +20,11 @@ type ManageTournamentSubmissionRowProps = {
 
 function ManageTournamentSubmissionRow(props: ManageTournamentSubmissionRowProps) {
   return <tr>
-    <td>{props.rankingData?.rank
-      ? <b>{props.rankingData.rank}</b>
+    <td>{props.rankingData?.rank !== undefined
+      ? <b>{props.rankingData.rank + 1}</b>
       : "N/A"
     }</td>
-    <td>{props.rankingData?.score
+    <td>{props.rankingData?.score !== undefined
       ? <b>{props.rankingData.score.toFixed(3)}</b>
       : "N/A"
     }</td>
@@ -92,12 +92,16 @@ function ManageTournamentSubmissionsTournament(props: ManageTournamentSubmission
   }
 
   const scoreTable = scoreEntries(props.tournamentData, competingSubmission.map(x => x.t), props.matches);
-  const scoreMap = new Map(scoreTable.map(x => [
-    // id
-    x.rowSubmission.tournamentSubmissionId,
-    // average score
-    x.row.reduce((acc, o) => acc + o.avgScore, 0) / x.row.length
-  ]));
+  const scoreMap = new Map(scoreTable.map(x => {
+    // all non NaN scores in row
+    const validScores = x.row.map(x => x.avgScore).filter(x => !isNaN(x));
+    return [
+      // id
+      x.rowSubmission.tournamentSubmissionId,
+      // average score
+      validScores.reduce((acc, o) => acc + o, 0) / validScores.length,
+    ]
+  }));
 
   // score
   const scoredCompetingSubmissions: EnhancedTableRowData[] = competingSubmission
@@ -129,7 +133,7 @@ function ManageTournamentSubmissionsTournament(props: ManageTournamentSubmission
           .map(({ t, i, s }, j) =>
             <ManageTournamentSubmissionRow
               key={i}
-              rankingData={{ rank: j + 1, score: s }}
+              rankingData={{ rank: j, score: s }}
               mutable={props.mutable}
               tournamentSubmission={t}
               setTournamentSubmission={(t) => props.setTournamentSubmissions(update(props.tournamentSubmissions, { [i]: { $set: t } }))}
