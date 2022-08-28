@@ -50,6 +50,7 @@ const loadManageMatchResolutionPage = async (props: AsyncProps<ManageMatchResolu
 
   const tournamentSubmission = await tournamentSubmissionView({
     tournamentId: [props.tournamentId],
+    submissionId: [matchResolution.submissionId],
     onlyRecent: true,
     apiKey: props.apiKey.key
   })
@@ -59,6 +60,7 @@ const loadManageMatchResolutionPage = async (props: AsyncProps<ManageMatchResolu
 
   const opponentTournamentSubmission = await tournamentSubmissionView({
     tournamentId: [props.tournamentId],
+    submissionId: [matchResolution.opponentSubmissionId],
     onlyRecent: true,
     apiKey: props.apiKey.key
   })

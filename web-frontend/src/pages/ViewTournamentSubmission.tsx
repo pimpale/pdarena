@@ -22,7 +22,7 @@ import { a11yDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 import SubmitTournamentSubmission from '../components/SubmitTournamentSubmission';
 
-import { Eye as ViewIcon, Mailbox as SubmitIcon } from 'react-bootstrap-icons';
+import { XLg as ErrorIcon, Eye as ViewIcon, Mailbox as SubmitIcon } from 'react-bootstrap-icons';
 import { ResolvedTypeReferenceDirectiveWithFailedLookupLocations } from 'typescript';
 import { getBackgroundColor, LookupTable, lookupTableWebsocketGenerator, scoreMatchups } from '../components/CrossTable';
 import ManageTournamentSubmission from '../components/ManageTournamentSubmission';
@@ -215,17 +215,28 @@ function ShowMatchupTable(props: ShowVerifyProgressProps) {
                   <tr key={matchup}>
                     <th>{matchup}</th>
                     {row.map(({ submission, opponent, score }, round) =>
-                      <td
-                        key={round}
-                        style={{
-                          backgroundColor:
-                            score === undefined
-                              ? undefined
-                              : getBackgroundColor(score)
-                        }}
-                        children={score}
-                        onClick={() => setInspectedMatchs([submission, opponent])}
-                      />
+                      submission || opponent
+                        ? <td key={round}
+                          className="px-0"
+                          style={{
+                            cursor: "pointer",
+                            backgroundColor:
+                              score === undefined
+                                ? undefined
+                                : getBackgroundColor(score)
+                          }}
+                          onClick={() => setInspectedMatchs([submission, opponent])}
+                          children={
+                            submission && opponent
+                              ? score
+                                ? score
+                                : <ErrorIcon style={{ color: "red" }} />
+                              : <Spinner animation="border" role="status" size="sm">
+                                <span className="visually-hidden">Loading...</span>
+                              </Spinner>
+                          }
+                        />
+                        : <td key={round} />
                     )}
                   </tr>
                 )}
@@ -242,12 +253,42 @@ function ShowMatchupTable(props: ShowVerifyProgressProps) {
     >
       {inspectedMatchs === null
         ? null
-        : <>
-
-        </>
+        : <Table hover bordered>
+          <thead>
+            <tr>
+              <td />
+              <th>Choice</th>
+              <th>Logs</th>
+            </tr>
+          </thead>
+          <tbody>{inspectedMatchs.map((m, i) =>
+            <tr key={i}>
+              <th>{i == 0 ? "This Submission" : "Opponent Submission"}</th>
+              {m === undefined
+                ? <td colSpan={2}/>
+                : <>
+                  <td>{
+                    m.defected === null
+                      ? "No Response"
+                      : m.defected
+                        ? "Defected"
+                        : "Cooperated"
+                  }</td>
+                  <td>
+                    <Link
+                      title="Match Resolution Logs"
+                      icon={ViewIcon}
+                      href={`/match_resolution?tournamentId=${props.tournamentSubmission.tournament.tournamentId}&matchResolutionId=${m.matchResolutionId}`}
+                    />
+                  </td>
+                </>
+              }
+            </tr>)
+          }</tbody>
+        </Table>
       }
-    </DisplayModal>
-  </Table>
+    </DisplayModal >
+  </Table >
 }
 
 function ManageTournamentSubmissionPageInner(props:
