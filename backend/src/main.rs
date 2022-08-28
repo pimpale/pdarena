@@ -64,8 +64,8 @@ pub struct MatchupTask {
 pub struct AppData {
     pub db: Db,
     pub site_external_url: String,
-    pub match_resolution_insert_tx: broadcast::Sender<()>,
-    pub tournament_submission_insert_tx: broadcast::Sender<()>,
+    pub match_resolution_insert_tx: broadcast::Sender<response::MatchResolutionLite>,
+    pub tournament_submission_insert_tx: broadcast::Sender<response::TournamentSubmission>,
     pub matchup_task_tx: mpsc::UnboundedSender<MatchupTask>,
     pub auth_service: AuthService,
 }
@@ -124,8 +124,8 @@ async fn main() -> Result<(), ()> {
     });
 
     // its ok if it lags because we do the whole query all over again
-    let (match_resolution_insert_tx, _) = broadcast::channel(1);
-    let (tournament_submission_insert_tx, _) = broadcast::channel(1);
+    let (match_resolution_insert_tx, _) = broadcast::channel(1000);
+    let (tournament_submission_insert_tx, _) = broadcast::channel(1000);
 
     // submit queue
     let (matchup_task_tx, matchup_task_rx) = mpsc::unbounded_channel();

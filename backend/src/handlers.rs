@@ -1,7 +1,6 @@
 use crate::request::TournamentSubmissionKind;
 use crate::response::AppError;
 use crate::run_code::RunCodeService;
-use crate::tournament_submission_service::get_recent_by_kind;
 use crate::MatchupTask;
 
 use super::Db;
@@ -231,7 +230,7 @@ pub async fn matchup_runner(
     db: Db,
     run_code_service: RunCodeService,
     matchup_task_rx: Arc<Mutex<mpsc::UnboundedReceiver<MatchupTask>>>,
-    match_resolution_insert_tx: broadcast::Sender<()>,
+    match_resolution_insert_tx: broadcast::Sender<response::MatchResolutionLite>,
     ongoing_tasks: Arc<Mutex<Vec<MatchupTask>>>,
 ) {
     loop {
@@ -281,7 +280,7 @@ async fn run_matchup(
         opponent_submission_id,
     }: MatchupTask,
     run_code_service: RunCodeService,
-    match_resolution_insert_tx: broadcast::Sender<()>,
+    match_resolution_insert_tx: broadcast::Sender<response::MatchResolutionLite>,
 ) -> Result<(), AppError> {
     // query the rounds that already exist for this matchup
     let con: &mut tokio_postgres::Client = &mut *db.get().await.map_err(report_pool_err)?;
@@ -332,7 +331,7 @@ async fn run_matchup(
 
     // rounds are zero indexed, so this is ok
     for round in (current_round as i64)..n_rounds {
-        let submission_match_resolution = execute_match(
+        let submission_match_resolution_pr = execute_match(
             db.clone(),
             &submission,
             &opponent_submission,
@@ -341,10 +340,9 @@ async fn run_matchup(
             &opponent_defection_history,
             &run_code_service,
             match_resolution_insert_tx.clone(),
-        )
-        .await?;
+        );
 
-        let opponent_submission_match_resolution = execute_match(
+        let opponent_submission_match_resolution_pr = execute_match(
             db.clone(),
             &opponent_submission,
             &submission,
@@ -353,11 +351,16 @@ async fn run_matchup(
             &submission_defection_history,
             &run_code_service,
             match_resolution_insert_tx.clone(),
-        )
-        .await?;
+        );
 
-        submission_defection_history.push(submission_match_resolution.defected);
-        opponent_defection_history.push(opponent_submission_match_resolution.defected);
+        // await both futures concurrently
+        let (submission_match_resolution, opponent_submission_match_resolution) = tokio::join!(
+            submission_match_resolution_pr,
+            opponent_submission_match_resolution_pr
+        );
+
+        submission_defection_history.push(submission_match_resolution?.defected);
+        opponent_defection_history.push(opponent_submission_match_resolution?.defected);
     }
 
     return Ok(());
@@ -371,7 +374,7 @@ async fn execute_match(
     matchup: i64,
     opponent_defection_history: &Vec<Option<bool>>,
     run_code_service: &RunCodeService,
-    notif_queue: broadcast::Sender<()>,
+    match_resolution_insert_tx: broadcast::Sender<response::MatchResolutionLite>,
 ) -> Result<MatchResolution, AppError> {
     let opponent_defection_history_str = opponent_defection_history
         .into_iter()
@@ -439,7 +442,8 @@ async fn execute_match(
     .map_err(report_postgres_err)?;
 
     // broadcast to all queues, ignoring the result
-    let _ = notif_queue.send(());
+    let _ = match_resolution_insert_tx
+        .send(fill_match_resolution_lite(con, match_resolution.clone()).await?);
 
     Ok(match_resolution)
 }
@@ -972,6 +976,7 @@ pub async fn tournament_submission_stream(
             .ok_or(response::AppError::StreamEndBeforeRequest)?
             // websocket errored out for some reason
             .map_err(|_| response::AppError::StreamEndBeforeRequest)?;
+
         let message_str = message
             .to_str()
             // message wasn't text
@@ -980,55 +985,105 @@ pub async fn tournament_submission_stream(
         let props = serde_json::from_str::<request::TournamentSubmissionViewProps>(message_str)
             .map_err(|_| response::AppError::DecodeError)?;
 
+        // validate that api key is valid
+
         // initialize the next novel id to the one specified
         let mut next_new_id = props.min_id.unwrap_or(0);
 
-        let mut first_loop = true;
+        // first we grab all existing ones
+        {
+            let client: &mut tokio_postgres::Client =
+                &mut *db.get().await.map_err(report_pool_err)?;
 
-        // return tournament_submissions
-        'recv_loop: loop {
-            // first loop goes automatically, but following loops must await
-            match if first_loop { Ok(()) } else { rx.recv().await } {
-                Ok(()) | Err(broadcast::error::RecvError::Lagged(_)) => {
-                    let client: &mut tokio_postgres::Client =
-                        &mut *db.get().await.map_err(report_pool_err)?;
+            // get data
+            let tournament_submission =
+                tournament_submission_service::query(&mut *client, props.clone())
+                    .await
+                    .map_err(report_postgres_err)?;
 
-                    // set the max id to the one specified at the end of the loop
-                    let mut adjusted_props = props.clone();
-                    adjusted_props.min_id = Some(next_new_id);
+            for u in tournament_submission.into_iter() {
+                // set next_new_id to the highest id processed + 1
+                if u.tournament_submission_id > next_new_id {
+                    next_new_id = u.tournament_submission_id + 1;
+                }
 
-                    // get data
-                    let tournament_submission =
-                        tournament_submission_service::query(&mut *client, adjusted_props)
-                            .await
-                            .map_err(report_postgres_err)?;
-
-                    for u in tournament_submission.into_iter() {
-                        // set next_new_id to the highest id processed + 1
-                        if u.tournament_submission_id > next_new_id {
-                            next_new_id = u.tournament_submission_id + 1;
-                        }
-
-                        let json_str = serde_json::to_string(
-                            &fill_tournament_submission(&mut *client, u).await?,
-                        )
+                let json_str =
+                    serde_json::to_string(&fill_tournament_submission(&mut *client, u).await?)
                         .expect("serde should have serialized json");
 
-                        // try to send array. If it fails then we close the websocket
-                        if let Err(_) = websocket.send(Message::text(json_str)).await {
-                            break 'recv_loop;
-                        }
-                    }
+                // try to send. If it fails then we close the websocket
+                if let Err(_) = websocket.send(Message::text(json_str)).await {
+                    return ();
                 }
-                // if we recieve another kind of error
-                _ => break 'recv_loop,
-            }
-
-            // after the first loop, we won't repeat
-            if first_loop {
-                first_loop = false;
             }
         }
+
+        // exclude any things that we've already seen
+        let mut props = props.clone();
+        props.min_id = Some(next_new_id);
+
+        // now we start streaming responses
+        while let Ok(tournament_submission) = rx.recv().await {
+            // check if the tournament_submission meets specs
+            if let Some(min_creation_time) = props.min_creation_time {
+                if !(tournament_submission.creation_time >= min_creation_time) {
+                    continue;
+                }
+            }
+            if let Some(max_creation_time) = props.max_creation_time {
+                if !(tournament_submission.creation_time <= max_creation_time) {
+                    continue;
+                }
+            }
+            if let Some(min_id) = props.min_id {
+                if !(tournament_submission.tournament_submission_id >= min_id) {
+                    continue;
+                }
+            }
+            if let Some(max_id) = props.max_id {
+                if !(tournament_submission.tournament_submission_id <= max_id) {
+                    continue;
+                }
+            }
+            if let Some(ref tournament_submission_ids) = props.tournament_submission_id {
+                if !(tournament_submission_ids
+                    .contains(&tournament_submission.tournament_submission_id))
+                {
+                    continue;
+                }
+            }
+            if let Some(ref creator_user_ids) = props.creator_user_id {
+                if !(creator_user_ids.contains(&tournament_submission.creator_user_id)) {
+                    continue;
+                }
+            }
+            if let Some(ref tournament_ids) = props.tournament_id {
+                if !(tournament_ids.contains(&tournament_submission.tournament.tournament_id)) {
+                    continue;
+                }
+            }
+            if let Some(ref submission_ids) = props.submission_id {
+                if !(submission_ids.contains(&tournament_submission.submission_id)) {
+                    continue;
+                }
+            }
+            if let Some(ref kind) = props.kind {
+                if !(kind == &tournament_submission.kind) {
+                    continue;
+                }
+            }
+
+            let json_str = serde_json::to_string(&tournament_submission)
+                .expect("serde should have serialized json");
+
+            // try to send. If it fails then we close the websocket
+            if let Err(_) = websocket.send(Message::text(json_str)).await {
+                return ();
+            }
+        }
+
+        // this will only be reached if the loop encounters an error
+        // if so then close
         return ();
     };
 }
@@ -1069,50 +1124,98 @@ pub async fn match_resolution_lite_stream(
         // initialize the next novel id to the one specified
         let mut next_new_id = props.min_id.unwrap_or(0);
 
-        let mut first_loop = true;
+        // first we grab all existing ones
+        {
+            let client: &mut tokio_postgres::Client =
+                &mut *db.get().await.map_err(report_pool_err)?;
 
-        // return match_resolutions
-        'recv_loop: loop {
-            // first loop goes automatically, but following loops must await
-            match if first_loop { Ok(()) } else { rx.recv().await } {
-                Ok(()) | Err(broadcast::error::RecvError::Lagged(_)) => {
-                    let client: &mut tokio_postgres::Client =
-                        &mut *db.get().await.map_err(report_pool_err)?;
+            // get data
+            let match_resolution = match_resolution_service::query(&mut *client, props.clone())
+                .await
+                .map_err(report_postgres_err)?;
 
-                    // set the max id to the one specified at the end of the loop
-                    let mut adjusted_props = props.clone();
-                    adjusted_props.min_id = Some(next_new_id);
-                    // get data
-                    let match_resolution =
-                        match_resolution_service::query(&mut *client, adjusted_props)
-                            .await
-                            .map_err(report_postgres_err)?;
+            for u in match_resolution.into_iter() {
+                // set next_new_id to the highest id processed + 1
+                if u.match_resolution_id > next_new_id {
+                    next_new_id = u.match_resolution_id + 1;
+                }
 
-                    for u in match_resolution.into_iter() {
-                        // set next_new_id to the highest id processed + 1
-                        if u.match_resolution_id > next_new_id {
-                            next_new_id = u.match_resolution_id + 1;
-                        }
-
-                        let json_str = serde_json::to_string(
-                            &fill_match_resolution_lite(&mut *client, u).await?,
-                        )
+                let json_str =
+                    serde_json::to_string(&fill_match_resolution_lite(&mut *client, u).await?)
                         .expect("serde should have serialized json");
 
-                        // try to send array. If it fails then we close the websocket
-                        if let Err(_) = websocket.send(Message::text(json_str)).await {
-                            break 'recv_loop;
-                        }
-                    }
+                // try to send. If it fails then we close the websocket
+                if let Err(_) = websocket.send(Message::text(json_str)).await {
+                    return ();
                 }
-                _ => break 'recv_loop,
-            }
-
-            // after the first loop, we won't repeat
-            if first_loop {
-                first_loop = false;
             }
         }
+
+        // exclude any things that we've already seen
+        let mut props = props.clone();
+        props.min_id = Some(next_new_id);
+
+        // now we start streaming responses
+        while let Ok(match_resolution_lite) = rx.recv().await {
+            // check if the match_resolution meets specs
+            if let Some(min_creation_time) = props.min_creation_time {
+                if !(match_resolution_lite.creation_time >= min_creation_time) {
+                    continue;
+                }
+            }
+            if let Some(max_creation_time) = props.max_creation_time {
+                if !(match_resolution_lite.creation_time <= max_creation_time) {
+                    continue;
+                }
+            }
+            if let Some(min_id) = props.min_id {
+                if !(match_resolution_lite.match_resolution_id >= min_id) {
+                    continue;
+                }
+            }
+            if let Some(max_id) = props.max_id {
+                if !(match_resolution_lite.match_resolution_id <= max_id) {
+                    continue;
+                }
+            }
+            if let Some(ref match_resolution_ids) = props.match_resolution_id {
+                if !(match_resolution_ids.contains(&match_resolution_lite.match_resolution_id)) {
+                    continue;
+                }
+            }
+            if let Some(ref submission_ids) = props.submission_id {
+                if !(submission_ids.contains(&match_resolution_lite.submission_id)) {
+                    continue;
+                }
+            }
+            if let Some(ref opponent_submission_ids) = props.opponent_submission_id {
+                if !(opponent_submission_ids
+                    .contains(&match_resolution_lite.opponent_submission_id))
+                {
+                    continue;
+                }
+            }
+            if let Some(ref rounds) = props.round {
+                if !(rounds.contains(&match_resolution_lite.round)) {
+                    continue;
+                }
+            }
+            if let Some(ref matchups) = props.matchup {
+                if !(matchups.contains(&match_resolution_lite.matchup)) {
+                    continue;
+                }
+            }
+            let json_str = serde_json::to_string(&match_resolution_lite)
+                .expect("serde should have serialized json");
+
+            // try to send. If it fails then we close the websocket
+            if let Err(_) = websocket.send(Message::text(json_str)).await {
+                return ();
+            }
+        }
+
+        // this will only be reached if the loop encounters an error
+        // if so then close
         return ();
     };
 }

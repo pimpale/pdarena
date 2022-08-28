@@ -188,8 +188,14 @@ function ShowMatchupTable(props: ShowVerifyProgressProps) {
             <Table bordered style={{ tableLayout: "fixed", width: `${9 + 2 * props.tournamentData.nRounds}rem` }}>
               <colgroup>
                 <col style={{ width: "9rem" }} />
+                {
+                  new Array(props.tournamentData.nRounds)
+                    .fill(undefined)
+                    .map((_, i) =>
+                      <col style={{ width: "2rem" }} />
+                    )
+                }
               </colgroup>
-              <colgroup span={props.tournamentData.nRounds} style={{ width: `${2 * props.tournamentData.nRounds}rem` }} />
               <tbody>
                 <tr>
                   <td />
