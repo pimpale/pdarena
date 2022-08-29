@@ -24,7 +24,7 @@ import SubmitTournamentSubmission from '../components/SubmitTournamentSubmission
 
 import { XLg as ErrorIcon, Eye as ViewIcon, Mailbox as SubmitIcon } from 'react-bootstrap-icons';
 import { ResolvedTypeReferenceDirectiveWithFailedLookupLocations } from 'typescript';
-import { getBackgroundColor, LookupTable, lookupTableWebsocketGenerator, scoreMatchups } from '../components/CrossTable';
+import { getBackgroundColor, LookupTable, lookupTableWebsocketGenerator, scoreMatchups, tournamentSubmissionColors } from '../components/CrossTable';
 import ManageTournamentSubmission from '../components/ManageTournamentSubmission';
 
 type ManageTournamentSubmissionPageData = {
@@ -154,6 +154,7 @@ function ShowMatchupTable(props: ShowVerifyProgressProps) {
     <thead>
       <tr>
         <th>Opponent</th>
+        <th>Opponent Status</th>
         <th>Score</th>
         <th>Details</th>
       </tr>
@@ -162,7 +163,12 @@ function ShowMatchupTable(props: ShowVerifyProgressProps) {
       <tr key={entry.ts.tournamentSubmissionId}>
         <td>
           <h5>{entry.ts.name}</h5>
-          <b>{entry.ts.kind}</b>
+        </td>
+        <td>
+          <h5
+            className={tournamentSubmissionColors.get(entry.ts.kind)}
+            children={entry.ts.kind}
+          />
         </td>
         <td>
           <p>{isNaN(entry.ms.avgScore)
@@ -170,11 +176,17 @@ function ShowMatchupTable(props: ShowVerifyProgressProps) {
             : entry.ms.avgScore.toFixed(3)
           }</p>
           <p>{entry.ms.disqualified
-            ? <>
-              <b className="text-danger">MATCH DISQUALIFIED</b>
-              <br />
-              <span>(one or more matches failed)</span>
-            </>
+            ? entry.ms.entries.some(r => r.some(x => !(x.submission && x.opponent)))
+              ? <>
+                <b className="text-secondary">MATCH NOT BEING COUNTED</b>
+                <br />
+                <span>(one or more matches haven't finished yet)</span>
+              </>
+              : <>
+                <b className="text-danger">MATCH DISQUALIFIED</b>
+                <br />
+                <span>(one or more matches failed)</span>
+              </>
             : entry.ms.nEntries < props.tournamentData.nRounds * props.tournamentData.nMatchups
               ? <>
                 <b className="text-secondary">MATCH IN PROGRESS</b>
@@ -265,7 +277,7 @@ function ShowMatchupTable(props: ShowVerifyProgressProps) {
             <tr key={i}>
               <th>{i == 0 ? "This Submission" : "Opponent Submission"}</th>
               {m === undefined
-                ? <td colSpan={2}/>
+                ? <td colSpan={2} />
                 : <>
                   <td>{
                     m.defected === null

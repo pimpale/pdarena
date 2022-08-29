@@ -17,8 +17,8 @@ module.exports = function(app) {
   // breaks a lot
   app.use(
     createProxyMiddleware({
-      pathFilter: '/api/pdarena_ws/',
-      pathRewrite: {'^/api/pdarena_ws/': ''},
+      pathFilter: '/api/pdarena/ws/',
+      pathRewrite: {'^/api/pdarena/ws/': ''},
       ws: true,
       target: 'ws://127.0.0.1:8080/public/ws/',
     })

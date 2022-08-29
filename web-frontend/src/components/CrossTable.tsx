@@ -1,4 +1,4 @@
-import { MatchResolution, MatchResolutionLite, Tournament, TournamentData, TournamentSubmission } from "../utils/api"
+import { MatchResolution, MatchResolutionLite, Tournament, TournamentData, TournamentSubmission, TournamentSubmissionKind } from "../utils/api"
 import { scorePrisonersDilemma } from "../utils/scoring";
 
 import update from 'immutability-helper';
@@ -13,6 +13,15 @@ import update from 'immutability-helper';
 //     })
 //   })
 // });
+
+
+export const tournamentSubmissionColors = new Map<TournamentSubmissionKind, string>([
+  ["VALIDATE", "text-success"],
+  ["COMPETE", "text-primary"],
+  ["CANCEL", "text-secondary"],
+  ["TESTCASE", "text-success"],
+]);
+
 
 
 export function lookupTableWebsocketGenerator(setLookupTable: (f: ((l: LookupTable) => LookupTable)) => void) {

@@ -5,18 +5,10 @@ import { Eye as ViewIcon, Pencil as EditIcon, X as DeleteIcon, } from 'react-boo
 import { TournamentData, TournamentSubmission, TournamentSubmissionKind } from '../utils/api';
 import format from 'date-fns/format';
 
-
 import ArchiveTournamentSubmission from '../components/ArchiveTournamentSubmission';
 import EditTournamentSubmission from '../components/EditTournamentSubmission';
 import { ApiKey } from '@innexgo/frontend-auth-api';
-
-
-const key = new Map<TournamentSubmissionKind, string>([
-  ["VALIDATE", "text-success"],
-  ["COMPETE", "text-primary"],
-  ["CANCEL", "text-secondary"],
-  ["TESTCASE", "text-success"],
-]);
+import { tournamentSubmissionColors } from './CrossTable';
 
 
 const ManageTournamentSubmission = (props: {
@@ -43,7 +35,7 @@ const ManageTournamentSubmission = (props: {
           <th>Status</th>
           <td>
             <h5
-              className={key.get(props.tournamentSubmission.kind)}
+              className={tournamentSubmissionColors.get(props.tournamentSubmission.kind)}
               children={props.tournamentSubmission.kind}
             />
           </td>

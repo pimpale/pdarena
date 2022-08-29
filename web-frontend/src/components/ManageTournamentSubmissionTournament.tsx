@@ -8,7 +8,7 @@ import { ViewUser } from './ViewData';
 
 import { Eye as ViewIcon } from 'react-bootstrap-icons';
 import { scorePrisonersDilemma } from '../utils/scoring';
-import { LookupTable, scoreEntries } from './CrossTable';
+import { LookupTable, scoreEntries, tournamentSubmissionColors } from './CrossTable';
 
 type ManageTournamentSubmissionRowProps = {
   rankingData?: { rank: number, score: number },
@@ -30,7 +30,12 @@ function ManageTournamentSubmissionRow(props: ManageTournamentSubmissionRowProps
     }</td>
     <td>{props.tournamentSubmission.name}</td>
     <td><ViewUser userId={props.tournamentSubmission.creatorUserId} apiKey={props.apiKey} expanded={false} /></td>
-    <td>{props.tournamentSubmission.kind}</td>
+    <td>
+      <h5
+        className={tournamentSubmissionColors.get(props.tournamentSubmission.kind)}
+        children={props.tournamentSubmission.kind}
+      />
+    </td>
     <td>
       <Link
         title="View"

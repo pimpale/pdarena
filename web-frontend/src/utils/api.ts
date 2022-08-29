@@ -224,7 +224,7 @@ function wsRelativeUrl(relPath: string) {
 }
 
 export function matchResolutionLiteStream(props: MatchResolutionViewProps, server?: string): WebSocket {
-  const path = "pdarena_ws/match_resolution_lite/stream";
+  const path = "pdarena/ws/match_resolution_lite/stream";
   const url = server === undefined
     ? wsRelativeUrl(path)
     : server + path;
