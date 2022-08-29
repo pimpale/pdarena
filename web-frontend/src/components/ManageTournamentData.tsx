@@ -1,6 +1,6 @@
 import React from 'react';
-import { Form, Button, Table} from 'react-bootstrap';
-import { Action, DisplayModal} from '@innexgo/common-react-components';
+import { Form, Button, Table } from 'react-bootstrap';
+import { Action, DisplayModal } from '@innexgo/common-react-components';
 import { Async, AsyncProps } from 'react-async';
 import { tournamentDataView, tournamentDataNew, TournamentData, } from '../utils/api';
 import { ViewUser } from '../components/ViewData';
@@ -31,7 +31,7 @@ function EditTournamentData(props: EditTournamentDataProps) {
   const onSubmit = async (values: EditTournamentDataValue,
     fprops: FormikHelpers<EditTournamentDataValue>) => {
 
-    let errors: FormikErrors<EditTournamentDataValue > = {};
+    let errors: FormikErrors<EditTournamentDataValue> = {};
 
     // Validate input
 
@@ -185,6 +185,11 @@ function EditTournamentData(props: EditTournamentDataProps) {
                 isInvalid={!!fprops.errors.nRounds}
               />
               <Form.Control.Feedback type="invalid">{fprops.errors.nRounds}</Form.Control.Feedback>
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label className="text-warning " hidden={!(parseInt(fprops.values.nRounds) * parseInt(fprops.values.nMatchups) > 100)}>
+                Using more than 100 matches total is not reccomended.
+              </Form.Label>
             </Form.Group>
             <Form.Group className="mb-3">
               <Button type="submit">Submit</Button>

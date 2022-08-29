@@ -240,7 +240,7 @@ function ShowMatchupTable(props: ShowVerifyProgressProps) {
                           onClick={() => setInspectedMatchs([submission, opponent])}
                           children={
                             submission && opponent
-                              ? score
+                              ? score !== undefined
                                 ? score
                                 : <ErrorIcon style={{ color: "red" }} />
                               : <Spinner animation="border" role="status" size="sm">

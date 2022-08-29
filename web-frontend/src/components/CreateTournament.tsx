@@ -119,7 +119,7 @@ function CreateTournament(props: CreateTournamentProps) {
       initialValues={{
         title: "",
         description: "",
-        nRounds: "" + 25,
+        nRounds: "" + 10,
         nMatchups: "" + 10,
       }}
       initialStatus={{
@@ -181,6 +181,11 @@ function CreateTournament(props: CreateTournamentProps) {
                 isInvalid={!!fprops.errors.nRounds}
               />
               <Form.Control.Feedback type="invalid">{fprops.errors.nRounds}</Form.Control.Feedback>
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label className="text-warning " hidden={!(parseInt(fprops.values.nRounds) * parseInt(fprops.values.nMatchups) > 100)}>
+                Using more than 100 matches total is not reccomended.
+              </Form.Label>
             </Form.Group>
             <Form.Group className="mb-3">
               <Button type="submit">Submit Form</Button>

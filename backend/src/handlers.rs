@@ -391,7 +391,7 @@ async fn execute_match(
     let opponent_submission_file_name = format!("mod_{}", utils::random_string());
 
     let run_code = [
-        String::from("#!/usr/bin/python3"),
+        String::from("#!/usr/bin/env python3"),
         format!("import {} as Sub", submission_file_name),
         format!("import {} as Opp", opponent_submission_file_name),
         format!(
