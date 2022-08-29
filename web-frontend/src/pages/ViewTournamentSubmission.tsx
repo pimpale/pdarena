@@ -1,6 +1,6 @@
 import React, { CSSProperties } from 'react';
 
-import { Card, Container, Form, Spinner, Table } from 'react-bootstrap';
+import { Alert, Button, Card, Container, Form, Spinner, Table } from 'react-bootstrap';
 import DashboardLayout from '../components/DashboardLayout';
 import { WidgetWrapper, Link, Section, DisplayModal, Action } from '@innexgo/common-react-components';
 import ErrorMessage from '../components/ErrorMessage';
@@ -315,7 +315,8 @@ function ManageTournamentSubmissionPageInner(props:
   // the websocket
   const [ws, setWs] = React.useState<WebSocket | undefined>(undefined);
   // whether or not the websocket is closed
-  const [wsClosed, setWsClosed] = React.useState(false);
+  const [wsOk, setWsOk] = React.useState(true);
+
   const [lookupTable, setLookupTable] = React.useState<LookupTable>([]);
 
   if (ws === undefined) {
@@ -324,13 +325,37 @@ function ManageTournamentSubmissionPageInner(props:
       onlyRecent: true,
       apiKey: props.apiKey.key
     });
+    new_ws.addEventListener('open', () => setWsOk(true));
     new_ws.addEventListener('message', lookupTableWebsocketGenerator(setLookupTable));
-    new_ws.addEventListener('close', () => setWsClosed(true));
+    new_ws.addEventListener('error', () => setWsOk(false));
+    new_ws.addEventListener('close', () => setWsOk(false));
     // set ws for next time
     setWs(new_ws);
   }
 
   return <>
+
+    {wsOk
+      ? null
+      : <Alert variant="danger" className='d-flex justify-content-center'>
+        <span>WebSocket connection failed!</span>
+        {
+          ws?.readyState === WebSocket.CONNECTING
+            ? <div className='ms-auto'>
+              <Spinner animation="border" role="status">
+                <span className="visually-hidden">Loading...</span>
+              </Spinner>
+            </div>
+            : <Button
+              variant="outline-danger"
+              className='ms-auto'
+              onClick={() => setWs(undefined)}
+              children="Reconnect"
+            />
+        }
+      </Alert>
+    }
+
     <Section name="View Tournament Submission" id="intro">
       <ManageTournamentSubmission
         tournamentSubmission={props.tournamentSubmission}
