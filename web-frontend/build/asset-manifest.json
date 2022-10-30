@@ -1,8 +1,8 @@
 {
   "files": {
-    "main.css": "/static/css/main.aaffa482.css",
-    "main.js": "/static/js/main.9b86c9b5.js",
-    "static/media/codicon.ttf": "/static/media/codicon.ade705761eb7e702770d.ttf",
+    "main.css": "/static/css/main.58aad5c0.css",
+    "main.js": "/static/js/main.18b8c359.js",
+    "static/media/codicon.ttf": "/static/media/codicon.b797181c93b3755f4fa1.ttf",
     "static/media/ubuntu-latin-300.woff": "/static/media/ubuntu-latin-300.8a517f2712bba8249913.woff",
     "static/media/ubuntu-latin-300italic.woff": "/static/media/ubuntu-latin-300italic.5b545d0e1cbcff11da01.woff",
     "static/media/ubuntu-latin-400italic.woff": "/static/media/ubuntu-latin-400italic.5a969b4119f974adf08c.woff",
@@ -22,11 +22,11 @@
     "static/media/atlas_icon_light.png": "/static/media/atlas_icon_light.2c64f0aa84c6597d77ed.png",
     "static/media/atlas_icon_dark.svg": "/static/media/atlas_icon_dark.7ceb54c8268860478ebf32a1a85776cd.svg",
     "index.html": "/index.html",
-    "main.aaffa482.css.map": "/static/css/main.aaffa482.css.map",
-    "main.9b86c9b5.js.map": "/static/js/main.9b86c9b5.js.map"
+    "main.58aad5c0.css.map": "/static/css/main.58aad5c0.css.map",
+    "main.18b8c359.js.map": "/static/js/main.18b8c359.js.map"
   },
   "entrypoints": [
-    "static/css/main.aaffa482.css",
-    "static/js/main.9b86c9b5.js"
+    "static/css/main.58aad5c0.css",
+    "static/js/main.18b8c359.js"
   ]
 }

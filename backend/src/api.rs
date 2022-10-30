@@ -23,7 +23,7 @@ macro_rules! combine {
 }
 
 /// The function that will show all ones to call
-pub fn api(app_data:AppData) -> impl Filter<Extract = impl warp::Reply, Error = Infallible> + Clone {
+pub fn api(app_data:AppData) -> impl Filter<Extract = (impl warp::Reply,), Error = Infallible> + Clone {
     // public API
     combine!(
         api_info(),
