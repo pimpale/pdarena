@@ -11,7 +11,6 @@ import formatDistance from 'date-fns/formatDistance';
 import AuthenticatedComponentProps from '@innexgo/auth-react-components/lib/components/AuthenticatedComponentProps';
 
 import { TournamentData, tournamentDataView } from '../utils/api';
-import { DefaultSidebarLayout } from '@innexgo/auth-react-components';
 import DashboardLayout from '../components/DashboardLayout';
 import React from 'react';
 import CreateTournament from '../components/CreateTournament';

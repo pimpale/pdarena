@@ -60,7 +60,7 @@ function AccountWrapper(props: AuthenticatedComponentProps) {
           </Async.Rejected>
           <Async.Fulfilled<AccountData>>{ad => <>
             <div className="mx-3 my-3">
-              <WidgetWrapper title="My account">
+              <WidgetWrapper title="My Account">
                 <span>Manage your account data</span>
                 <ManageUserData
                   apiKey={props.apiKey}

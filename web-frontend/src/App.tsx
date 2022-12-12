@@ -18,6 +18,7 @@ import { DefaultResetPasswordPage } from '@innexgo/auth-react-components';
 // logged in required pages
 import Dashboard from './pages/Dashboard';
 import Account from './pages/Account';
+import Help from './pages/Help';
 
 // Competition  Pages
 import Compete from './pages/Compete';
@@ -87,6 +88,7 @@ function App() {
       {/* Requires you to be logged in */}
       <Route path="/dashboard" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={Dashboard} />} />
       <Route path="/account" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={Account} />} />
+      <Route path="/help" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={Help} />} />
       {/* Competition Pages */}
       <Route path="/compete" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={Compete} />} />
       <Route path="/tournament" element={<AuthenticatedComponentRenderer branding={branding} {...apiKeyGetSetter} component={ViewTournament} />} />
