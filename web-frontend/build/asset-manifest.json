@@ -1,7 +1,7 @@
 {
   "files": {
-    "main.css": "/static/css/main.58aad5c0.css",
-    "main.js": "/static/js/main.98eb5334.js",
+    "main.css": "/static/css/main.8229db7a.css",
+    "main.js": "/static/js/main.f86e9caa.js",
     "static/media/codicon.ttf": "/static/media/codicon.b797181c93b3755f4fa1.ttf",
     "static/media/ubuntu-latin-300.woff": "/static/media/ubuntu-latin-300.8a517f2712bba8249913.woff",
     "static/media/ubuntu-latin-300italic.woff": "/static/media/ubuntu-latin-300italic.5b545d0e1cbcff11da01.woff",
@@ -22,11 +22,11 @@
     "static/media/atlas_icon_light.png": "/static/media/atlas_icon_light.2c64f0aa84c6597d77ed.png",
     "static/media/atlas_icon_dark.svg": "/static/media/atlas_icon_dark.7ceb54c8268860478ebf32a1a85776cd.svg",
     "index.html": "/index.html",
-    "main.58aad5c0.css.map": "/static/css/main.58aad5c0.css.map",
-    "main.98eb5334.js.map": "/static/js/main.98eb5334.js.map"
+    "main.8229db7a.css.map": "/static/css/main.8229db7a.css.map",
+    "main.f86e9caa.js.map": "/static/js/main.f86e9caa.js.map"
   },
   "entrypoints": [
-    "static/css/main.58aad5c0.css",
-    "static/js/main.98eb5334.js"
+    "static/css/main.8229db7a.css",
+    "static/js/main.f86e9caa.js"
   ]
 }
