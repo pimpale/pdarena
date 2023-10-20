@@ -109,7 +109,7 @@ async fn main() -> Result<(), ()> {
         })?;
 
     // open connection to auth service
-    let auth_service = AuthService::new(&auth_service_url).await;
+    let auth_service = AuthService::new(&auth_service_url);
 
     // open connection to judge0 service
     let run_code_service = run_code::RunCodeService::new(&pythonbox_service_url).await;
